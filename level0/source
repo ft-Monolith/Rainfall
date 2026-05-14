@@ -1,0 +1,21 @@
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(int argc, char **argv)
+{
+    if (atoi(argv[1]) == 423)
+    {
+        char *args[] = { strdup("/bin/sh"), NULL };
+        gid_t egid = getegid();
+        uid_t euid = geteuid();
+        setresgid(egid, egid, egid);
+        setresuid(euid, euid, euid);
+        execv("/bin/sh", args);
+    }
+    else
+    {
+        fwrite("No !\n", 1, 5, stderr);
+    }
+    return (0);
+}

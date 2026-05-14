@@ -1,0 +1,32 @@
+# level0 — Walkthrough
+
+## Vulnérabilité
+Le binaire compare atoi(argv[1]) à la valeur codée en dur 0x1a7 (423).
+Si la comparaison réussit, il spawn un shell avec les droits de level1 grâce au bit SUID.
+
+## Étapes
+
+1. Lister le répertoire home et repérer le binaire SUID appartenant à level1 :
+   ls -la
+   → le binaire level0 a le flag -rwsr-x--- avec owner level1 (bit SUID positionné)
+
+2. Désassembler main avec GDB pour comprendre la logique :
+   gdb ./level0
+   disas main
+   → atoi(argv[1]) est comparé à 0x1a7
+
+3. Convertir 0x1a7 en décimal :
+   python3 -c "print(0x1a7)"
+   → 423
+
+4. Lancer le binaire avec 423 en argument :
+   ./level0 423
+   → un shell s'ouvre avec les droits de level1
+
+5. Lire le mot de passe du niveau suivant :
+   cat /home/user/level1/.pass
+   → 1fe8a524fa4bec01ca4ea2a869af2a02260d4a7d5fe7e7c24d8617e6dca12d3a
+
+6. Passer sur level1 :
+   su level1
+   Password: 1fe8a524fa4bec01ca4ea2a869af2a02260d4a7d5fe7e7c24d8617e6dca12d3a
