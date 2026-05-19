@@ -241,10 +241,3 @@ cat /home/user/level3/.pass
 | Shellcode | Non (fonction existante) | Oui (injecté dans le buffer) |
 | Adresse cible | `0x08048444` (run) | `0x0804a008` (heap) |
 
----
-
-## Flag
-
-```
-492deb0e7d14c4b5695173cca843c4384fe52d0857c2b0718e1a521a4d33ec02
-```
