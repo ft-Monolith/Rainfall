@@ -57,7 +57,7 @@ Traduction en C :
 
 ```c
 int main(void) {
-    char buffer[76];
+    char buffer[64];  // 0x50 - 0x10 = 64 bytes (taille réelle du buffer)
     gets(buffer);
     return 0;
 }
@@ -136,16 +136,16 @@ Adresses hautes
 ┌──────────────────────────┐
 │ Adresse de retour (4 oct)│  ← cible : on l'écrase avec &run
 ├──────────────────────────┤
-│                          │
-├                          ┤
-│                          │
-│                          │
-│   Buffer (76 octets)     │  ← gets écrit ici
-│                          │
-│                          │
+│ Saved EBP     (4 oct)    │  ← à écraser aussi (junk)
+├──────────────────────────┤
+│ Padding alignement(8 oct)│  ← ajouté par and $0xfffffff0,%esp
+├──────────────────────────┤
+│ Buffer        (64 oct)   │  ← gets écrit ici
 └──────────────────────────┘
 Adresses basses (esp)
 ```
+
+Total padding avant l'adresse de retour : 64 + 8 + 4 = **76 octets** (vérifié expérimentalement).
 
 ### Schéma du payload
 
