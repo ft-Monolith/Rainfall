@@ -122,12 +122,12 @@ levelX/
 
 ## Techniques d'exploitation courantes (i386)
 
-- **Buffer overflow** — stack smashing, contrôle du RET
-- **Format string** — `%x`, `%n`, lecture/écriture arbitraire
-- **Heap overflow** — corruption de chunks malloc
-- **GOT overwrite** — redirection de fonctions via la Global Offset Table
-- **ret2libc** — appel de `system("/bin/sh")` sans shellcode
-- **Shellcode injection** — NOP sled + shellcode sur la stack
+- **Buffer overflow** — stack smashing, contrôle du RET.
+- **Format string** — `%x`, `%n`, lecture/écriture arbitraire.
+- **Heap overflow** — corruption de chunks malloc.
+- **GOT overwrite** — redirection de fonctions via la Global Offset Table.
+- **ret2libc** — appel de `system("/bin/sh")` sans shellcode.
+- **Shellcode injection** — NOP sled + shellcode sur la stack.
 
 ### Outils utiles (à documenter dans Ressources si utilisés)
 
