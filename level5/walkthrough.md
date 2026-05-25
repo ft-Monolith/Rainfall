@@ -208,3 +208,72 @@ Mais les paddings nécessaires (~34 000 caractères) dépassaient la limite de `
 Retour à `%hhn` (1 octet) : paddings max ~244 caractères → total ~444 octets → ✓.
 
 **Règle** : toujours vérifier que la taille totale du payload < limite de `fgets`.
+
+## Schémas du flow
+
+### 1. Flow global de l'exploit
+
+```mermaid
+flowchart TD
+    A([Lancement de level5]) --> B["main appelle n()"]
+    B --> C["fgets buf, 0x200, stdin<br/>→ lit NOTRE payload"]
+    C --> D["printf(buf)<br/>⚠️ FAILLE format string<br/>buf est interprété comme format"]
+    D --> E{"Le payload contient<br/>%c + %hhn"}
+    E --> F["printf écrit l'adresse de o()<br/>dans la GOT de exit<br/>(octet par octet)"]
+    F --> G["printf se termine"]
+    G --> H["le programme appelle exit(1)"]
+    H --> I{"exit consulte sa case GOT<br/>0x08049838 pour savoir<br/>où sauter"}
+    I -->|"GOT écrasée !"| J["saute dans o()<br/>0x080484a4"]
+    J --> K["o() fait system('/bin/sh')"]
+    K --> L([🎉 SHELL avec droits level6])
+
+    style D fill:#ff6b6b,stroke:#333,color:#fff
+    style F fill:#ffa94d,stroke:#333
+    style J fill:#69db7c,stroke:#333
+    style L fill:#4dabf7,stroke:#333,color:#fff
+```
+
+### 2. Écriture de 0x080484a4 dans la GOT, octet par octet
+
+```mermaid
+flowchart TD
+    subgraph PAYLOAD["Notre payload (dans buf)"]
+        direction LR
+        P1["@0x08049838"] --- P2["@0x08049839"] --- P3["@0x0804983a"] --- P4["@0x0804983b"] --- P5["%c... %hhn x4"]
+    end
+
+    PAYLOAD --> PRINTF["printf compte les caractères affichés<br/>et %hhn écrit ce compteur (1 octet)<br/>à l'adresse pointée"]
+
+    PRINTF --> W1["écrit 0xa4 → 0x08049838"]
+    PRINTF --> W2["écrit 0x84 → 0x08049839"]
+    PRINTF --> W3["écrit 0x04 → 0x0804983a"]
+    PRINTF --> W4["écrit 0x08 → 0x0804983b"]
+
+    W1 --> GOT
+    W2 --> GOT
+    W3 --> GOT
+    W4 --> GOT
+
+    subgraph GOT["GOT de exit (4 cases consécutives)"]
+        direction LR
+        G1["0x38<br/>a4"] --- G2["0x39<br/>84"] --- G3["0x3a<br/>04"] --- G4["0x3b<br/>08"]
+    end
+
+    GOT --> RESULT["Relu en little-endian :<br/>a4 84 04 08 → 0x080484a4 = o()"]
+
+    style PRINTF fill:#ffa94d,stroke:#333
+    style RESULT fill:#69db7c,stroke:#333
+```
+
+### 3. L'idée en 3 temps
+
+```mermaid
+flowchart LR
+    A["1. printf<br/>(faille)"] --> B["2. on écrase<br/>GOT[exit]<br/>= @o()"] --> C["3. exit()<br/>saute dans o()<br/>→ shell"]
+    style A fill:#ff6b6b,color:#fff
+    style B fill:#ffa94d
+    style C fill:#69db7c
+```
+
+**level3/4** : on écrase une *variable* (`m`) pour passer un `if`.
+**level5** : pas de `if` → on écrase une *adresse de fonction dans la GOT* (`exit`) pour détourner le flux vers `o()`.
