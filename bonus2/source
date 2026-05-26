@@ -1,0 +1,86 @@
+/*
+** Bonus2 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main attend 2 arguments (argc == 3, sinon retourne 1).
+**   - Deux buffers ADJACENTS sur la pile :
+**         buf1[40]  (local_60)   <- strncpy(buf1, argv[1], 40)
+**         buf2[36]  (acStack_38) <- strncpy(buf2, argv[2], 32)
+**     (une boucle les met d'abord à zéro : 19 mots de 4 octets = 76 octets,
+**      ce qui couvre buf1 + buf2.)
+**   - getenv("LANG") choisit une langue :
+**         LANG commence par "fi"  -> language = 1  (finnois)
+**         LANG commence par "nl"  -> language = 2  (néerlandais)
+**         sinon                   -> language = 0  (anglais)
+**   - Une 2e boucle recopie 76 octets À PARTIR de buf1 vers un autre buffer de
+**     la pile (name[76]). Comme buf1 et buf2 sont collés, ces 76 octets =
+**     buf1(40) + buf2(36) concaténés : argv[1] puis argv[2] dans un seul bloc.
+**   - greetuser(name) construit le message de bienvenue et l'affiche.
+**
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Variable globale fixée par main selon $LANG, lue par greetuser. */
+int	language = 0;
+
+/*
+** Construit "<salutation><nom>" dans un buffer local de 72 octets et l'affiche.
+** strcat sans borne -> débordement, on écrase l'adresse de retour de greetuser.
+**
+** Ghidra écrit la salutation octet par octet (builtin_strncpy en morceaux) sur
+** local_4c[4] + local_48[4] + local_44[64] : c'est UN seul buffer de 72 octets.
+** Le 'name' vient de main (Ghidra le voit comme &stack0x00000004).
+**
+** Offset confirmé par gdb (motif) : la @retour est écrasée par argv[2][18..21].
+** Avec LANG=fi (préfixe finnois plus long), cette cible tombe dans les 32
+** octets contrôlés de argv[2] -> on y met l'adresse du shellcode. cf. walkthrough.
+*/
+void	greetuser(char *name)
+{
+	char	greeting[72];	/* local_4c + local_48 + local_44, contigus */
+
+	if (language == 1)		/* finnois : "Hyvää päivää " = 18 octets */
+		strcpy(greeting, "Hyvää päivää ");
+	else if (language == 2)		/* néerlandais : "Goedemiddag! " = 13 octets */
+		strcpy(greeting, "Goedemiddag! ");
+	else				/* anglais (language == 0) : "Hello " = 6 octets */
+		strcpy(greeting, "Hello ");
+
+	strcat(greeting, name);	/* pas de borne -> overflow du buffer de 72 */
+	puts(greeting);
+}
+
+int	main(int argc, char **argv)
+{
+	char	buf1[40];	/* local_60   : reçoit argv[1] (40 octets max) */
+	char	buf2[36];	/* acStack_38 : reçoit argv[2] (32 octets max) */
+	char	*lang;		/* local_14                                    */
+	char	name[76];	/* &stack0xffffff50 : buf1+buf2 concaténés     */
+
+	if (argc != 3)
+		return (1);
+
+	/* met buf1 + buf2 à zéro. */
+	memset(buf1, 0, 76);
+
+	strncpy(buf1, argv[1], 0x28);	/* 40 octets */
+	strncpy(buf2, argv[2], 0x20);	/* 32 octets */
+
+	lang = getenv("LANG");
+	if (lang != NULL)
+	{
+		if (memcmp(lang, "fi", 2) == 0)
+			language = 1;
+		else if (memcmp(lang, "nl", 2) == 0)
+			language = 2;
+	}
+
+	/* recopie 76 octets depuis buf1 -> name : comme buf1 et buf2 sont
+	** adjacents, name contient argv[1] suivi de argv[2]. */
+	memcpy(name, buf1, 76);
+
+	return (greetuser(name));
+}
