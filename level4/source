@@ -1,0 +1,54 @@
+/*
+** Level4 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main appelle n().
+**   - n() lit une ligne avec fgets (512 octets max) dans un buffer de 520,
+**     puis passe ce buffer à p().
+**   - p() est un simple wrapper qui fait printf(str) -> notre saisie est
+**     utilisée comme CHAÎNE DE FORMAT (faille format string).
+**   - Si la variable globale m vaut 0x1025544 (16930116), n() lance
+**     system("/bin/cat /home/user/level5/.pass").
+**
+** La faille :
+**   p() appelle printf() avec une chaîne contrôlée par l'utilisateur. Les
+**   spécificateurs %x/%p permettent de LIRE la pile, et %n permet d'ÉCRIRE
+**   en mémoire le nombre de caractères déjà affichés. On l'utilise pour
+**   écrire 0x1025544 dans m.
+**
+** Exploitation (résumé) :
+**   1) trouver l'adresse de m :        objdump -t level4 | grep " m$"
+**   2) trouver la position du buffer sur la pile (offset %N$x où on lit
+**      0x41414141 si on a mis "AAAA" en tête).
+**   3) payload = adresse(m) + padding %c|%x pour atteindre 16930116 octets
+**      affichés + "%N$n" qui écrit ce compteur à l'adresse pointée par
+**      le N-ième argument (notre buffer).
+**   $ ./level4 < payload  ->  m == 0x1025544  ->  cat .pass  ->  level5
+**   (voir walkthrough pour le calcul exact du padding et de l'offset)
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int	m;	/* variable globale à faire passer à 0x1025544 */
+
+void	p(char *str)
+{
+	printf(str);	/* ⚠️ format string : str contrôlé par l'utilisateur */
+}
+
+void	n(void)
+{
+	char	buf[520];	/* local_20c */
+
+	fgets(buf, 0x200, stdin);	/* lit au plus 512 octets */
+	p(buf);
+	if (m == 0x1025544)
+		system("/bin/cat /home/user/level5/.pass");
+}
+
+int	main(void)
+{
+	n();
+	return (0);
+}

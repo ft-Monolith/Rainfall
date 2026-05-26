@@ -1,0 +1,62 @@
+/*
+** Level6 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main alloue DEUX chunks sur le heap :
+**       * buf      : 64 octets, destiné à recevoir argv[1] via strcpy.
+**       * func_ptr : 4 octets, contient un POINTEUR DE FONCTION initialisé
+**                    à l'adresse de m().
+**   - main fait strcpy(buf, argv[1])  -> aucune borne, taille libre.
+**   - main appelle (*func_ptr)()  -> par défaut, exécute m() qui dit "Nope".
+**   - n() lance system("/bin/cat /home/user/level7/.pass") mais n'est JAMAIS
+**     appelée par le programme.
+**
+** La faille :
+**   strcpy sans contrôle de taille + les deux chunks sont contigus sur le
+**   heap (l'allocateur les place côte à côte). En envoyant >64 octets dans
+**   argv[1], on déborde de buf, on traverse les métadonnées du chunk voisin,
+**   et on écrase la valeur stockée dans func_ptr.
+**   On y met l'adresse de n() -> l'appel (*func_ptr)() saute dans n() et
+**   cat le pass de level7.
+**
+** Exploitation (résumé) :
+**   1) objdump -d level6 | grep "<n>"   -> adresse de n()
+**   2) trouver l'offset entre les deux chunks (souvent 72 = 64 buf + 8 de
+**      header malloc). À confirmer avec gdb (x/40x sur l'adresse de buf).
+**   3) payload = 72 octets de padding + adresse(n) en little-endian
+**   $ ./level6 $(python -c 'print "A"*72 + "\xADDR_n"')  ->  cat .pass  ->  level7
+**   (voir walkthrough pour la vérification de l'offset dans gdb)
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/*
+** n() : jamais appelée par le programme. On détourne le pointeur de fonction
+** sur le heap (écrasé par le débordement de strcpy) pour sauter ici.
+*/
+void	n(void)
+{
+	system("/bin/cat /home/user/level7/.pass");
+}
+
+void	m(void)
+{
+	puts("Nope");
+}
+
+int	main(int argc, char **argv)
+{
+	char		*buf;		/* chunk de 64 octets sur le heap */
+	void		(**func_ptr)(void);	/* chunk voisin : pointeur de fonction */
+
+	buf = malloc(0x40);
+	func_ptr = malloc(sizeof(void *));
+	*func_ptr = m;			/* par défaut : appelle m() ("Nope") */
+
+	strcpy(buf, argv[1]);		/* ⚠️ pas de borne -> heap overflow */
+
+	(*func_ptr)();			/* peut être détourné vers n() */
+	return (0);
+}
