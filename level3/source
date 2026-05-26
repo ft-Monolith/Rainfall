@@ -1,0 +1,46 @@
+/*
+** Level3 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main appelle v().
+**   - v() lit une ligne avec fgets (520 octets max) puis fait printf(buf).
+**     ⚠️ printf(buf) : notre saisie est utilisée comme CHAÎNE DE FORMAT
+**        -> faille "format string".
+**   - Si la variable globale m vaut 0x40 (64), v() lance system("/bin/sh").
+**
+** La faille :
+**   printf(buf) sans format fixe interprète nos %x, %p, %n... En lisant la
+**   pile à l'aveugle, on retrouve notre propre buffer (le "4e %p" affiche
+**   0x41414141 = "AAAA"). Avec %n on peut ÉCRIRE en mémoire le nombre de
+**   caractères affichés -> on l'utilise pour mettre 64 (0x40) dans m.
+**
+** Exploitation (résumé) :
+**   payload = adresse de m + padding (%c) pour atteindre 64 caractères + %n
+**   visant la position de notre buffer sur la pile.
+**   $ ./level3 < payload   ->  m = 0x40  ->  system("/bin/sh")  ->  level4
+**   (voir walkthrough.md pour le calcul de l'offset et du compteur)
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int	m;	/* variable globale à faire passer à 0x40 */
+
+void	v(void)
+{
+	char	buf[520];	/* local_20c */
+
+	fgets(buf, 0x200, stdin);	/* lit au plus 512 octets */
+	printf(buf);			/* ⚠️ format string : buf est le format */
+	if (m == 0x40)
+	{
+		fwrite("Wait what?!\n", 1, 0xc, stdout);
+		system("/bin/sh");
+	}
+}
+
+int	main(void)
+{
+	v();
+	return (0);
+}

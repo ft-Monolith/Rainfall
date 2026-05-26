@@ -1,0 +1,74 @@
+/*
+** Level9 — source reconstruite à partir du désassemblage Ghidra (binaire C++).
+**
+** Comportement du vrai binaire :
+**   - main exige au moins 1 argument (sinon _exit(1)).
+**   - Il crée 2 objets N sur le heap : new N(5) puis new N(6).
+**     Chaque objet fait 0x6c = 108 octets :
+**         offset 0   : pointeur de vtable (implicite, car classe polymorphe)
+**         offset 4   : char buffer[100]
+**         offset 104 : int  n
+**   - a->setAnnotation(argv[1]) copie argv[1] dans a->buffer via memcpy,
+**     SANS contrôle de taille  ->  débordement de tas.
+**   - L'appel "*b + *a" est en réalité un APPEL VIRTUEL :
+**         (*(b->vtable[0]))(b, a)
+**     => il déréférence le pointeur de vtable de b.
+**
+** La faille :
+**   a et b sont contigus sur le heap (b = a + 0x6c). En débordant a->buffer,
+**   on écrase le POINTEUR DE VTABLE de b (situé à b+0 = a+0x6c).
+**   Distance buffer -> vtable de b : 0x6c - 4 = 104 octets.
+**   Comme l'appel virtuel fait func = *(*b) puis call func, on redirige
+**   l'exécution vers notre shellcode (placé dans argv[1]).
+**
+** Exploitation (résumé) :
+**   argv[1] = [ @ shellcode ][ shellcode ]...[ padding -> 104 ][ @ a->buffer ]
+**     - les 104+ octets écrasent la vtable de b avec l'adresse de a->buffer ;
+**     - a->buffer[0] contient l'adresse du shellcode ;
+**     - le double déréférencement de l'appel virtuel saute sur le shellcode.
+*/
+
+#include <cstring>
+#include <unistd.h>
+
+class N
+{
+public:
+	char	buffer[100];	/* tampon copié sans borne (offset 4 dans l'objet) */
+	int	n;		/* valeur du constructeur (offset 104)             */
+
+	N(int value)
+	{
+		n = value;
+	}
+
+	/* Copie s dans buffer SANS vérifier la taille -> heap overflow */
+	void setAnnotation(char *s)
+	{
+		memcpy(buffer, s, strlen(s));
+	}
+
+	/* Méthodes virtuelles -> l'objet possède un pointeur de vtable en offset 0 */
+	virtual int operator+(N &right)
+	{
+		return n + right.n;
+	}
+
+	virtual int operator-(N &right)
+	{
+		return n - right.n;
+	}
+};
+
+int main(int argc, char **argv)
+{
+	if (argc < 2)
+		_exit(1);
+
+	N *a = new N(5);		/* operator.new(0x6c) + N::N(this, 5) */
+	N *b = new N(6);		/* operator.new(0x6c) + N::N(this, 6) */
+
+	a->setAnnotation(argv[1]);	/* overflow : argv[1] dans a->buffer  */
+
+	return (*b + *a);		/* appel virtuel : (*b->vtable[0])(b, a) */
+}

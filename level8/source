@@ -1,0 +1,78 @@
+/*
+** Level8 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   Mini "shell" qui boucle à l'infini et accepte 4 commandes : auth, reset,
+**   service, login. À chaque tour il affiche les pointeurs globaux auth et
+**   service avec "%p, %p" (info précieuse pour l'exploit).
+**
+**   - "auth <x>"    : auth = malloc(4) (zéro-initialisé), puis strcpy(auth, <x>)
+**                     si la chaîne fait moins de 31 octets.
+**   - "reset"       : free(auth).
+**   - "service<x>"  : service = strdup(<x>)  -> alloue un chunk sur le heap.
+**   - "login"       : si *(int *)(auth + 0x20) != 0  -> system("/bin/sh"),
+**                     sinon affiche "Password:".
+**
+** La faille :
+**   auth ne fait que 4 octets, mais login teste l'octet à auth + 0x20 (= +32),
+**   donc HORS de l'allocation de auth. En tapant "service", le chunk créé par
+**   strdup retombe (selon la disposition du heap) pile à auth + 0x20 : ce qu'on
+**   y écrit devient non nul -> login déclenche system("/bin/sh").
+**   Les "%p, %p" affichés permettent de vérifier que service == auth + 0x20.
+**
+** Exploitation (résumé) :
+**   1) "auth "    -> crée auth.
+**   2) "service " -> service (strdup) tombe à auth+0x20, valeur non nulle.
+**   3) "login"    -> *(int *)(auth+0x20) != 0 -> shell.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Pointeurs globaux, affichés à chaque tour de boucle via "%p, %p". */
+char	*auth;
+char	*service;
+
+int	main(void)
+{
+	char	line[128];	/* buffer de saisie (fgets lit 0x80 = 128 octets) */
+
+	while (1)
+	{
+		printf("%p, %p \n", auth, service);
+
+		if (fgets(line, 0x80, stdin) == NULL)
+			return (0);
+
+		/* "auth " (5 octets) : alloue 4 octets et y copie l'argument */
+		if (strncmp(line, "auth ", 5) == 0)
+		{
+			auth = malloc(4);
+			auth[0] = '\0';
+			auth[1] = '\0';
+			auth[2] = '\0';
+			auth[3] = '\0';
+			if (strlen(line + 5) < 0x1f)	/* < 31 octets */
+				strcpy(auth, line + 5);
+		}
+
+		/* "reset" : libère auth */
+		if (strncmp(line, "reset", 5) == 0)
+			free(auth);
+
+		/* "service" : copie l'argument (line + 7) sur le heap via strdup */
+		if (strncmp(line, "service", 6) == 0)
+			service = strdup(line + 7);
+
+		/* "login" : teste l'octet à auth + 0x20 (hors des 4 octets de auth) */
+		if (strncmp(line, "login", 5) == 0)
+		{
+			if (*(int *)(auth + 0x20) == 0)
+				fwrite("Password:\n", 1, 10, stdout);
+			else
+				system("/bin/sh");	/* ← objectif */
+		}
+	}
+	return (0);
+}

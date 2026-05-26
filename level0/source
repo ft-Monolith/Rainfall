@@ -1,21 +1,43 @@
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+/*
+** Level0 — source reconstruite à partir du désassemblage (gdb/Ghidra).
+**
+** Comportement du vrai binaire :
+**   - main convertit argv[1] en nombre avec atoi.
+**   - Si ce nombre vaut 423 (0x1a7), le programme :
+**       * récupère euid/egid (le binaire est setuid level1),
+**       * les applique avec setresuid/setresgid (pour garder les droits),
+**       * lance execv("/bin/sh", ...) -> un shell aux droits de level1.
+**   - Sinon, il affiche "No !".
+**
+** Exploitation :
+**   $ ./level0 423        -> shell setuid level1
+**   $ cat /home/user/level1/.pass
+**
+** Note : binaire compilé en statique (~747 Ko), d'où l'absence de "main"
+** évident dans Ghidra ; main est passé en argument à __libc_start_main
+** depuis la fonction "entry" (ici à l'adresse 0x08048ec0).
+*/
 
-int main(int argc, char **argv)
+#include <stdio.h>	/* fwrite, stderr            */
+#include <stdlib.h>	/* atoi                      */
+#include <string.h>	/* strdup                    */
+#include <unistd.h>	/* execv, gete[ug]id, setres */
+
+int	main(int argc, char **argv)
 {
-    if (atoi(argv[1]) == 423)
-    {
-        char *args[] = { strdup("/bin/sh"), NULL };
-        gid_t egid = getegid();
-        uid_t euid = geteuid();
-        setresgid(egid, egid, egid);
-        setresuid(euid, euid, euid);
-        execv("/bin/sh", args);
-    }
-    else
-    {
-        fwrite("No !\n", 1, 5, stderr);
-    }
-    return (0);
+	if (atoi(argv[1]) == 423)		/* 0x1a7 = 423 */
+	{
+		char	*args[] = { strdup("/bin/sh"), NULL };
+		gid_t	egid = getegid();
+		uid_t	euid = geteuid();
+
+		setresgid(egid, egid, egid);	/* applique les droits du setuid */
+		setresuid(euid, euid, euid);
+		execv("/bin/sh", args);		/* shell aux droits de level1    */
+	}
+	else
+	{
+		fwrite("No !\n", 1, 5, stderr);
+	}
+	return (0);
 }

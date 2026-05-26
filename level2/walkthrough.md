@@ -122,7 +122,34 @@ Résultat :
 
 Distance du buffer à l'adresse de retour : **76 + 4 = 80 bytes**.
 
-Note : contrairement à `main` du level1, `p()` n'a pas d'instruction `and $0xfffffff0,%esp`, donc pas de padding d'alignement supplémentaire.
+### Micro-schéma : ce qu'on traverse
+
+```mermaid
+flowchart TD
+    subgraph PILE["Pile pendant p() — gets écrit du bas vers le haut"]
+        direction TB
+        RET["adresse de retour<br/>ebp+4<br/>ON L'ÉCRASE avec @heap"]
+        EBP["saved ebp<br/>ebp+0<br/>4 octets à traverser"]
+        BUF["buffer<br/>ebp-76<br/>76 octets — gets écrit ici"]
+        RET --- EBP --- BUF
+    end
+    style BUF fill:#69db7c,color:#000
+    style EBP fill:#ffd43b,color:#000
+    style RET fill:#ff6b6b,color:#fff
+```
+
+Correspondance avec le payload :
+
+```mermaid
+flowchart LR
+    A["shellcode<br/>23 oct"] --- B["A × 57<br/>(reste du buffer + saved ebp)"] --- C["@heap<br/>4 oct<br/>écrase ebp+4"]
+    style A fill:#69db7c,color:#000
+    style B fill:#ffd43b,color:#000
+    style C fill:#ff6b6b,color:#fff
+```
+
+> 80 octets à traverser = buffer (76) + saved ebp (4), puis l'adresse de retour.
+> Payload : 23 (shellcode) + 57 (A) = 80, puis `@heap`.
 
 ---
 

@@ -1,0 +1,56 @@
+/*
+** Level2 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main appelle p().
+**   - p() lit une ligne avec gets() dans un buffer de 76 octets (pas de borne)
+**     -> buffer overflow sur la pile.
+**   - AVANT de continuer, p() inspecte sa propre adresse de retour : si elle
+**     commence par 0xb (zone de la pile sur Linux 32 bits), il fait _exit(1).
+**     -> protection anti-"retour sur la pile" (empêche d'exécuter un shellcode
+**        placé directement dans le buffer).
+**   - Ensuite p() fait puts() puis strdup() : strdup recopie notre buffer sur
+**     le HEAP (adresse en 0x0804..., qui elle passe le filtre 0xb).
+**
+** La faille / l'exploit (ret2shellcode via strdup) :
+**   1) on place un shellcode au début du buffer ;
+**   2) on écrase l'adresse de retour avec l'adresse HEAP où strdup va copier
+**      le buffer (ex: 0x0804a008) -> commence par 0x08, donc le filtre 0xb
+**      la laisse passer ;
+**   3) strdup recopie le shellcode à cette adresse heap ;
+**   4) au "ret", p() saute sur le heap -> exécute le shellcode -> shell level3.
+**   (voir walkthrough.md pour le payload complet)
+**
+** Note : unaff_retaddr représente l'adresse de retour lue sur la pile (ebp+4) ;
+** on l'exprime ici via __builtin_return_address pour rester compilable.
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void	p(void)
+{
+	char		buf[76];	/* local_50 : gets() sans borne -> overflow */
+	unsigned int	retaddr;
+
+	fflush(stdout);
+	gets(buf);
+
+	/* Filtre anti-pile : refuse une adresse de retour en 0xb... */
+	retaddr = (unsigned int)__builtin_return_address(0);
+	if ((retaddr & 0xb0000000) == 0xb0000000)
+	{
+		printf("(%p)\n", (void *)retaddr);
+		_exit(1);
+	}
+
+	puts(buf);
+	strdup(buf);	/* recopie le buffer sur le heap (zone autorisée) */
+}
+
+int	main(void)
+{
+	p();
+	return (0);
+}

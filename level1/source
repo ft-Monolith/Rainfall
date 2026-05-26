@@ -1,0 +1,40 @@
+/*
+** Level1 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main lit une ligne avec gets() dans un buffer de 76 octets, SANS limite
+**     de taille  ->  buffer overflow classique sur la pile.
+**   - run() affiche un message puis lance system("/bin/sh"), mais n'est
+**     JAMAIS appelée par main.
+**
+** La faille :
+**   gets() ne borne pas la saisie. En écrivant plus de 76 octets, on déborde
+**   le buffer, on traverse le saved EBP (4 octets) et on écrase l'adresse de
+**   retour de main. En y mettant l'adresse de run(), main "retourne" dans run.
+**
+** Exploitation :
+**   76 octets de remplissage + adresse de run() en little-endian.
+**   $ python -c 'print "A"*76 + "\x44\x84\x04\x08"' | ./level1
+**   (run() est à 0x08048444 ; le shell hérite des droits setuid level2)
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+/*
+** run() : jamais appelée par main. On détourne l'adresse de retour de main
+** vers cette fonction pour obtenir le shell.
+*/
+void	run(void)
+{
+	fwrite("Good... Wait what?\n", 1, 0x13, stdout);
+	system("/bin/sh");
+}
+
+int	main(void)
+{
+	char	buf[76];	/* local_50 : aucune borne sur gets -> overflow */
+
+	gets(buf);
+	return (0);
+}

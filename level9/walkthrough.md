@@ -36,6 +36,32 @@ int main(int argc, char **argv) {
 }
 ```
 
+## Les deux appels clés (à ne pas confondre)
+
+L'exploit repose sur **deux appels de fonction** distincts : un qui **pose la bombe**, un qui la **déclenche**.
+
+| Appel | Rôle | Ce qu'il fait |
+|---|---|---|
+| `a->setAnnotation(argv[1])` | 🧨 **pose la bombe** | `strcpy` sans borne → déborde et écrase `b->vtable_ptr`. Rien ne s'exécute encore, on a juste corrompu la mémoire. |
+| `*b + *a` (appel virtuel) | 💥 **déclenche** | compile en `call *%edx` ; suit le `vtable_ptr` corrompu → saute sur notre shellcode. |
+
+```
+setAnnotation(argv[1])   →  POSE la bombe (overflow, corrompt b->vtable_ptr)
+        │
+        ▼
+*b + *a  →  call *%edx    →  DÉCLENCHE (saute sur le shellcode) 💥
+```
+
+Le `call *%edx` est le **cœur de l'exploit** (c'est lui qui exécute le shellcode), mais il
+ne marche **que parce que** `setAnnotation` a écrasé `b->vtable_ptr` juste avant. Les lignes
+exactes dans `main` :
+
+```asm
+8048680:  mov (%eax),%eax       ; eax = *b = b->vtable_ptr  (corrompu par setAnnotation)
+8048682:  mov (%eax),%edx       ; edx = *vtable_ptr = notre @shellcode
+8048693:  call *%edx            ; ← saute sur le shellcode
+```
+
 ## Vulnérabilité
 
 `a->setAnnotation(argv[1])` fait `strcpy(a->annotation, argv[1])` sans limite.
@@ -59,6 +85,31 @@ On contrôle :
 → On peut donc faire pointer `b->vtable_ptr` sur `&a->annotation`, où on a fabriqué une **fausse vtable** qui pointe sur notre shellcode (placé juste après dans le même buffer).
 
 ## Distance heap (mesurée en GDB)
+
+### Comment trouver les adresses des breakpoints
+
+On ne les connaît pas d'avance : on les lit dans `disas main`.
+
+```
+(gdb) set print asm-demangle on   ; traduit les noms C++ (_Znwj -> operator new)
+(gdb) disas main
+```
+
+Règle : `operator new` (`_Znwj`) renvoie l'adresse allouée dans `eax`. Le breakpoint
+se met donc sur l'instruction **juste après le `call`**, là où `eax` contient encore
+le résultat :
+
+```asm
+0x8048617 <+35>:  call  0x8048530 <_Znwj@plt>   ; operator new (objet a)
+0x804861c <+40>:  mov   %eax,%ebx               ; <- BP ici : eax = adresse de a
+0x8048639 <+69>:  call  0x8048530 <_Znwj@plt>   ; operator new (objet b)
+0x804863e <+74>:  mov   %eax,%ebx               ; <- BP ici : eax = adresse de b
+0x8048677 <+131>: call  ... <setAnnotation>     ; setAnnotation
+0x804867c <+136>: mov   ...                      ; <- BP ici : voir la heap après copie
+```
+
+Même méthode qu'au level2 (breakpoint après `strdup`) : on s'arrête juste après
+l'appel pour lire dans `eax` ce que la fonction a renvoyé.
 
 ```
 break *0x0804861c    ; juste après operator new pour a
@@ -150,3 +201,49 @@ cat /home/user/bonus0/.pass
 - Le shellcode 32-bit `execve("/bin/sh")` fait 25 octets et n'a pas d'octets nuls → passe sans souci dans un `strcpy`.
 - Les adresses heap sur RainFall sont **stables** (pas d'ASLR effectif) : ce qu'on mesure en GDB est réutilisable directement.
 - Distance 108 = `sizeof(N) + sizeof(chunk_header) − offset(annotation)` ; ça correspond à la mesure `b − (a+4)` = `0x6c`.
+
+## Schéma du workflow (version simple)
+
+### 1. L'idée en 4 étapes
+
+```mermaid
+flowchart TD
+    A["On envoie une LONGUE commande<br/>(notre texte) au programme"] --> B["Le programme la copie dans une boîte<br/>trop petite → ça déborde"]
+    B --> C["Ce qui déborde écrase un panneau<br/>indicateur juste à côté"]
+    C --> D["On a réglé ce panneau pour qu'il<br/>renvoie au DÉBUT de notre texte"]
+    D --> E["Au début de notre texte, on a mis<br/>l'adresse de notre code (shellcode)"]
+    E --> F([Le programme exécute notre code → shell 🎉])
+
+    style B fill:#ff6b6b,color:#fff
+    style C fill:#ffa94d
+    style F fill:#69db7c
+```
+
+### 2. Notre commande, en 3 morceaux
+
+```mermaid
+flowchart LR
+    P1["DÉBUT<br/>adresse du shellcode<br/>« va exécuter là-bas »"] --- P2["MILIEU<br/>le shellcode<br/>(le vrai code) + bourrage"] --- P3["FIN<br/>ce qui déborde<br/>« renvoie au début »"]
+    style P1 fill:#ffd43b
+    style P2 fill:#69db7c
+    style P3 fill:#ffa94d
+```
+
+> La **FIN** (ce qui déborde) dit « retourne au DÉBUT ».
+> Le **DÉBUT** dit « va au shellcode ».
+> Donc le programme fait : FIN → DÉBUT → shellcode.
+
+### 3. Le « rebond » en image
+
+```mermaid
+flowchart LR
+    DEB["le débordement<br/>(fin de la commande)"] -->|"renvoie au début"| DEBUT["début de la commande"]
+    DEBUT -->|"contient l'adresse de"| SHELL["shellcode → /bin/sh"]
+    style DEB fill:#ffa94d
+    style DEBUT fill:#ffd43b
+    style SHELL fill:#69db7c
+```
+
+> Pourquoi 2 sauts (et pas 1) ? Parce qu'en C++ l'appel passe **toujours par 2 flèches**
+> (`objet → panneau → fonction`). On ne peut donc pas sauter direct au shellcode :
+> il faut un rebond par le début de notre commande.

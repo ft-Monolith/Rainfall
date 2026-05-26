@@ -1,0 +1,69 @@
+/*
+** Level7 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main alloue 2 "structures" sur le heap, chacune = { int id; char *buffer }.
+**   - strcpy(struct->buffer, argv[i]) SANS contrôle de taille  -> heap overflow.
+**   - main charge le password de level8 dans la globale `c`, puis fait puts("~~").
+**   - m() affiche la globale `c` (le password) mais n'est JAMAIS appelée par main.
+**
+** Technique d'exploitation (voir walkthrough.md) :
+**   1) argv[1] déborde le 1er buffer et écrase le pointeur buffer de la 2e struct
+**      en y mettant l'adresse GOT de puts.
+**   2) le 2e strcpy écrit argv[2] (= adresse de m) dans GOT[puts]  -> écriture arbitraire.
+**   3) puts("~~") saute alors dans m() qui affiche `c` (le password de level8).
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+/* Globale : reçoit le contenu de /home/user/level8/.pass (fgets lit 0x44 = 68 octets). */
+char c[68];
+
+/*
+** Structure allouée sur le heap : un identifiant + un pointeur vers un buffer.
+** Dans le binaire : puVar[0] = id, puVar[1] = buffer (chaque malloc fait 8 octets).
+*/
+typedef struct s_data
+{
+	int		id;		/* puVar[0] : vaut 1 pour la 1re struct, 2 pour la 2e */
+	char	*buffer;	/* puVar[1] : pointe un malloc(8) qui reçoit argv[i] */
+}	t_data;
+
+/*
+** m() : affiche la globale `c` (le password) suivie de l'heure courante.
+** Jamais appelée par main -> on détourne puts() vers elle via la GOT.
+*/
+void	m(void)
+{
+	time_t	t;
+
+	t = time(NULL);
+	printf("%s - %d\n", c, t);
+}
+
+int	main(int argc, char **argv)
+{
+	t_data	*a;
+	t_data	*b;
+	FILE	*stream;
+
+	a = malloc(8);			/* 1re struct  */
+	a->id = 1;
+	a->buffer = malloc(8);		/* buffer de a -> strcpy commence*/
+
+	b = malloc(8);			/* 2e struct   */
+	b->id = 2;
+	b->buffer = malloc(8);		/* buffer de b */
+
+	strcpy(a->buffer, argv[1]);	/* overflow : argv[1] dans un buffer de 8 octets   */
+	strcpy(b->buffer, argv[2]);	/* écrit argv[2] à l'adresse contenue dans b->buffer */
+
+	stream = fopen("/home/user/level8/.pass", "r");
+	fgets(c, 0x44, stream);		/* charge le password de level8 dans la globale c */
+	puts("~~");			/* appel détourné vers m() (GOT[puts] écrasée)    */
+
+	return (0);
+}

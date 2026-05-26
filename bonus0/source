@@ -1,0 +1,84 @@
+/*
+** Bonus0 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main appelle pp() qui remplit un buffer de 54 octets, puis l'affiche.
+**   - pp() lit DEUX mots (via p()) dans deux buffers locaux de 20 octets,
+**     puis les concatène dans le buffer de main : "<mot1> <mot2>".
+**   - p(dest, prompt) affiche le prompt, lit jusqu'à 0x1000 octets sur stdin,
+**     remplace le '\n' par '\0', puis fait strncpy(dest, buf, 0x14 = 20).
+**
+** La faille (double) :
+**   1) strncpy(dest, buf, 20) NE pose PAS de '\0' si l'entrée fait exactement
+**      20 octets. Du coup local_34[20] n'est pas terminé : le strcpy() suivant
+**      continue de lire dans local_20[20] (les deux buffers sont adjacents sur
+**      la pile) et copie 40 octets d'un coup dans result[54].
+**   2) Ensuite ' ' + strcat(result, local_20) rajoute encore ~21 octets :
+**         40 (fusion) + 1 (' ') + 20 (strcat) + 1 ('\0') = 62 octets
+**      écrits dans result[54]  ->  débordement de pile, on écrase EIP.
+**
+** Exploitation (résumé) :
+**   - Shellcode placé dans une variable d'environnement (+ NOP sled).
+**   - Les octets aux positions 9..12 du 2ème mot atterrissent dans EIP :
+**         mot1 = 'A'*20            (pas de '\0' -> fusion)
+**         mot2 = 'A'*9 + &sled + 'A'*7
+**     -> ret saute sur le NOP sled -> shellcode -> shell bonus1.
+**   (voir walkthrough.md pour le payload complet)
+**
+** Note : pcVar1 = strchr(buf, '\n') puis *pcVar1 = '\0' : le vrai binaire ne
+** vérifie pas que strchr a trouvé un '\n' (crash possible si absent), on garde
+** le même comportement ici.
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+/* &DAT_080486a0 : chaîne de prompt affichée avant chaque lecture (" - "). */
+#define PROMPT " - "
+
+/*
+** Lit un mot sur stdin et le recopie (au plus 20 octets) dans dest.
+** strncpy sans garantie de '\0' final -> source de l'overflow.
+*/
+void	p(char *dest, char *prompt)
+{
+	char	buf[4104];	/* local_100c : grand tampon de lecture */
+	char	*nl;
+
+	puts(prompt);
+	read(0, buf, 0x1000);		/* lit jusqu'à 4096 octets        */
+	nl = strchr(buf, '\n');
+	*nl = '\0';			/* coupe au premier '\n'          */
+	strncpy(dest, buf, 0x14);	/* 20 octets, PAS de '\0' garanti */
+}
+
+/*
+** Lit deux mots et construit "<mot1> <mot2>" dans param_1 (result[54] de main).
+*/
+void	pp(char *param_1)
+{
+	char	word1[20];	/* local_34 */
+	char	word2[20];	/* local_20 --> les deux sont cote a cote dans la memoire*/
+
+	p(word1, PROMPT);
+	p(word2, PROMPT);
+
+	strcpy(param_1, word1);		/* si word1 non terminé \0-> lit word2 aussi */
+
+	/* (param_1 + strlen(param_1)) : ajoute un espace séparateur.
+	** Le do-while du désassemblage est un strlen() inliné. */
+	param_1[strlen(param_1)] = ' ';
+	param_1[strlen(param_1)] = '\0';
+
+	strcat(param_1, word2);		/* concatène le 2ème mot */
+}
+
+int	main(void)
+{
+	char	result[54];	/* local_3a */
+
+	pp(result);
+	puts(result);
+	return (0);
+}
