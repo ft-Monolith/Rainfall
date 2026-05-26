@@ -2,15 +2,20 @@
 ** Level1 — source reconstruite à partir du désassemblage Ghidra.
 **
 ** Comportement du vrai binaire :
-**   - main lit une ligne avec gets() dans un buffer de 76 octets, SANS limite
+**   - main lit une ligne avec gets() dans un buffer de 64 octets, SANS limite
 **     de taille  ->  buffer overflow classique sur la pile.
 **   - run() affiche un message puis lance system("/bin/sh"), mais n'est
 **     JAMAIS appelée par main.
 **
 ** La faille :
-**   gets() ne borne pas la saisie. En écrivant plus de 76 octets, on déborde
-**   le buffer, on traverse le saved EBP (4 octets) et on écrase l'adresse de
-**   retour de main. En y mettant l'adresse de run(), main "retourne" dans run.
+**   gets() ne borne pas la saisie. Le buffer fait 64 octets, mais il faut 76
+**   octets pour atteindre l'adresse de retour : 64 (buffer) + 8 (alignement) +
+**   4 (saved EBP) = 76. Au-delà, on écrase l'adresse de retour de main ; en y
+**   mettant l'adresse de run(), main "retourne" dans run.
+**
+** Attention : 64 = TAILLE du buffer (0x50 réservé - 0x10 = l'offset du buffer
+** dans le cadre). 76 = OFFSET d'exploit jusqu'à la @retour. Deux choses
+** distinctes (cf. walkthrough pour le détail).
 **
 ** Exploitation :
 **   76 octets de remplissage + adresse de run() en little-endian.
