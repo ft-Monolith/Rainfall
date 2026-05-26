@@ -1,0 +1,61 @@
+/*
+** Bonus1 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main attend 2 arguments : argv[1] (un nombre) et argv[2] (des données).
+**   - count = atoi(argv[1]).
+**   - SI count < 10 :
+**         memcpy(buffer, argv[2], count * 4);   // buffer = 40 octets
+**         si (count == 0x574f4c46)  ->  execl("/bin/sh", "sh", 0);
+**     SINON : retourne 1.
+**
+** La faille (entier signé + overflow d'entier + débordement de pile) :
+**   - count est un int SIGNÉ, et le test est "count < 10". Un nombre NÉGATIF
+**     passe donc le test.
+**   - La taille du memcpy est "count * 4". memcpy prend un size_t (NON signé) :
+**     un count négatif bien choisi, multiplié par 4, "déborde" l'int 32 bits et
+**     retombe sur une PETITE valeur positive côté size_t.
+**         count = -2147483637 (= 0x8000000B)   ->  count < 10  ✓
+**         count * 4 = -8589934548  ≡  44 (mod 2^32)  ->  memcpy copie 44 octets
+**   - Or sur la pile, count (local_14) est situé EXACTEMENT 40 octets après
+**     buffer (local_3c). Copier 44 octets = remplir buffer[40] PUIS écraser
+**     count avec les 4 octets suivants.
+**
+** L'exploit :
+**   On fait écraser count par la valeur 0x574f4c46 = "FLOW" (en little-endian
+**   "\x46\x4c\x4f\x57") via le memcpy. Au moment du test "count == 0x574f4c46",
+**   count a changé -> la condition est vraie -> execl("/bin/sh").
+**       argv[1] = "-2147483637"
+**       argv[2] = 'A'*40 + "\x46\x4c\x4f\x57"
+**   Astuce : count est testé < 10 AVANT le memcpy, et comparé à 0x574f4c46
+**   APRÈS. Le memcpy change sa valeur entre les deux.
+**
+** Note : 0x574f4c46 = 'F''L''O''W' lus en little-endian (octets 46 4c 4f 57).
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int	main(int argc, char **argv)
+{
+	char	buffer[40];	/* local_3c : tampon de 40 octets             */
+	int	count;		/* local_14 : situé 40 octets après buffer    */
+
+	count = atoi(argv[1]);		/* argv[1] : taille demandée          */
+
+	if (count < 10)			/* test SIGNÉ -> un négatif passe     */
+	{
+		/* count * 4 : un négatif bien choisi déborde et donne une
+		** petite taille non signée -> overflow contrôlé de buffer.   */
+		memcpy(buffer, argv[2], count * 4);
+
+		/* count a pu être écrasé par le memcpy ci-dessus. */
+		if (count == 0x574f4c46)	/* "FLOW" */
+			execl("/bin/sh", "sh", 0);
+
+		return (0);
+	}
+	return (1);
+}
