@@ -1,41 +1,5 @@
 # Level 9 — C++: heap BoF + fake vtable hijack
 
-## Main simplifié
-
-```cpp
-class N {
-public:
-    void (*vtable_ptr)(N*, N*);   // offset 0x00 — pointeur vers la vtable
-    char annotation[0x64];         // offset 0x04 — buffer de 100 octets
-    int value;                     // offset 0x68
-
-    N(int v) {
-        vtable_ptr = &PTR_operator+;   // initialisé par le constructeur
-        value      = v;
-    }
-
-    void setAnnotation(char *s) {
-        strcpy(annotation, s);          // <-- pas de borne -> heap BoF
-    }
-};
-
-int main(int argc, char **argv) {
-    if (argc < 2) _exit(1);
-
-    N *a = new N(5);                    // operator new(0x6c) -> 108 octets
-    N *b = new N(6);                    // alloué juste après a sur la heap
-
-    a->setAnnotation(argv[1]);          // <-- la faille : strcpy non bornée
-
-    // En ASM final :
-    //   mov  eax, [b]            ; eax = b
-    //   mov  eax, [eax]          ; eax = b->vtable_ptr
-    //   mov  edx, [eax]          ; edx = *(b->vtable_ptr) = vtable[0]
-    //   call edx                 ; appel via double indirection
-    (*b->vtable_ptr[0])(b, a);
-}
-```
-
 ## Les deux appels clés (à ne pas confondre)
 
 L'exploit repose sur **deux appels de fonction** distincts : un qui **pose la bombe**, un qui la **déclenche**.

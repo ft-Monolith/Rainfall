@@ -1,43 +1,5 @@
 # Level 8 — Heap: out-of-bounds read via adjacent allocation
 
-## Main simplifié
-
-```c
-char *auth    = NULL;
-char *service = NULL;
-
-int main(void) {
-    char buf[128];
-
-    while (1) {
-        printf("%p, %p \n", auth, service);
-
-        if (fgets(buf, 128, stdin) == NULL)
-            return 0;
-
-        if (strncmp(buf, "auth ", 5) == 0) {
-            auth = malloc(4);
-            memset(auth, 0, 4);
-            if (strlen(buf + 5) <= 30)
-                strcpy(auth, buf + 5);
-        }
-
-        if (strncmp(buf, "reset", 5) == 0)
-            free(auth);
-
-        if (strncmp(buf, "service", 7) == 0)
-            service = strdup(buf + 7);
-
-        if (strncmp(buf, "login", 5) == 0) {
-            if (auth[32] == 0)
-                fwrite("Password:\n", 1, 10, stdout);
-            else
-                system("/bin/sh");
-        }
-    }
-}
-```
-
 ## Vulnérabilité
 
 `auth` est alloué avec `malloc(4)` (4 octets).  

@@ -1,12 +1,5 @@
 # Walkthrough — Rainfall : Level0
 
-## Objectif
-
-Obtenir le mot de passe de `level1` en exploitant le binaire `level0` (setuid `level1`).
-Ici, il n’y a pas de buffer overflow : la logique est une **validation d’argument**.
-
----
-
 ## 1. Reconnaissance
 
 ### Permissions du binaire
@@ -74,42 +67,7 @@ Lancer le binaire avec l’argument correct :
 
 Si la comparaison réussit, un shell s’ouvre avec les droits `level1`.
 
----
-
-## 5. Récupérer le mot de passe du niveau suivant
-
-Dans le shell obtenu :
-
-```bash
-cat /home/user/level1/.pass
-```
-
-Puis se connecter :
-
-```bash
-su level1
-# coller le mot de passe récupéré
-```
-
----
-
-## 6. Pseudo-code de la logique
-
-```c
-int main(int argc, char **argv) {
-    int n = atoi(argv[1]);
-    if (n == 0x1a7) {
-        // shell avec droits effectifs level1 (setuid)
-        spawn_shell();
-    } else {
-        // échec
-    }
-}
-```
-
----
-
-## 7. Points importants à retenir
+## 5. Points importants à retenir
 
 - `atoi` convertit une chaîne en entier.
 - `cmp $0x1a7, %eax` fixe la valeur exacte à fournir.

@@ -6,30 +6,6 @@
 si l'input dépasse 64 octets, on déborde sur le bloc malloc suivant qui contient un
 pointeur de fonction → on écrase ce pointeur avec l'adresse de `n()`.
 
-## Le code (Ghidra)
-
-```c
-void main(undefined4 param_1, int param_2) {
-    char *__dest;
-    undefined4 *puVar1;
-
-    __dest = malloc(0x40);           // bloc 1 : 64 octets pour l'input
-    puVar1 = malloc(4);              // bloc 2 : 4 octets pour le pointeur de fonction
-    *puVar1 = m;                     // initialise le pointeur → m()
-    strcpy(__dest, argv[1]);         // <-- faille : pas de vérification de taille
-    (*(code *)*puVar1)();            // appelle la fonction pointée
-    return;
-}
-
-void n(void) {
-    system("/bin/cat /home/user/level7/.pass");  // <-- le trésor
-}
-
-void m(void) {
-    puts("Nope");                    // fonction par défaut
-}
-```
-
 ## La faille : strcpy sans limite
 
 `strcpy` copie octet par octet jusqu'au `\0` de fin de chaîne, sans jamais vérifier
