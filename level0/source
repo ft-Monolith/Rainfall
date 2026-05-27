@@ -11,10 +11,10 @@
 **
 */
 
-#include <stdio.h>	/* fwrite, stderr            */
-#include <stdlib.h>	/* atoi                      */
-#include <string.h>	/* strdup                    */
-#include <unistd.h>	/* execv, gete[ug]id, setres */
+#include <stdio.h>	
+#include <stdlib.h>	
+#include <string.h>
+#include <unistd.h>
 
 int	main(int argc, char **argv)
 {

