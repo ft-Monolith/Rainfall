@@ -27,7 +27,7 @@ flowchart TD
     end
 
     MEM --> D["count vaut maintenant 0x574f4c46 = 'FLOW'"]
-    D --> E["if count == 0x574f4c46<br/>execl /bin/sh 💥"]
+    D --> E["if count == 0x574f4c46<br/>execl /bin/sh"]
 
     style C fill:#ffcdd2,stroke:#b71c1c
     style E fill:#c8e6c9,stroke:#1b5e20
@@ -47,13 +47,13 @@ adresses croissantes →
 40 (remplir buffer) + 4 (écraser count) = 44 octets à copier
 ```
 
-- copier **40** octets → remplit `buffer`, mais ne touche pas `count` ❌
-- copier **44** octets → remplit `buffer` **puis écrase `count`** ✅
+- copier **40** octets → remplit `buffer`, mais ne touche pas `count` 
+- copier **44** octets → remplit `buffer` **puis écrase `count`** 
 
 Les 4 derniers octets de `argv[2]` (`\x46\x4c\x4f\x57`) deviennent donc la
 nouvelle valeur de `count`.
 
-> ⚠️ **44 = la TAILLE de la copie** (combien d'octets). **0x574f4c46 = la VALEUR**
+> **44 = la TAILLE de la copie** (combien d'octets). **0x574f4c46 = la VALEUR**
 > qu'on écrit dans `count`. Deux choses différentes ! On copie 44 octets *pour
 > pouvoir* poser `0x574f4c46` dans `count`.
 
@@ -101,10 +101,3 @@ argv[2] = "A"*40          → remplit buffer
 
 `"\x46\x4c\x4f\x57"` = `"FLOW"` écrit en **little-endian** (octets à l'envers) pour
 que `count`, relu comme un entier, vaille bien `0x574f4c46`.
-
-Résultat → shell aux droits de **bonus2** :
-
-```bash
-whoami          # → bonus2
-cat /home/user/bonus2/.pass
-```

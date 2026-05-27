@@ -7,7 +7,7 @@
 > `buf[0] = '\0'` → `buf` devient `""`, et `argv[1]` est aussi `""` →
 > `strcmp("", "") == 0` → shell `end`. **C'est le dernier niveau.**
 
-> ℹ️ **Pas de débordement ici** : la faille est purement **logique**. On ne fait
+>  **Pas de débordement ici** : la faille est purement **logique**. On ne fait
 > rien déborder, on exploite le fait qu'on contrôle l'indice de troncature ET
 > l'un des deux opérandes du `strcmp`.
 
@@ -20,8 +20,8 @@ flowchart TD
     RUN --> F["fread(buf, 66, .pass)<br/>buf = vrai mot de passe"]
     F --> N["n = atoi(argv[1]) = atoi('') = 0"]
     N --> CUT["buf[n] = buf[0] = '\0'<br/>buf devient la chaine vide ''"]
-    CUT --> CMP["strcmp(buf, argv[1])<br/>strcmp('', '') == 0 ✅"]
-    CMP --> SH["execl('/bin/sh') → shell end 💥"]
+    CUT --> CMP["strcmp(buf, argv[1])<br/>strcmp('', '') == 0 "]
+    CMP --> SH["execl('/bin/sh') → shell end "]
 
     style CUT fill:#fff3cd,stroke:#856404
     style CMP fill:#c8e6c9,stroke:#1b5e20
@@ -62,9 +62,9 @@ buf = [ '\0' 'b' 'f' '9' ... le mot de passe ... ]
 
 ```
 argv[1] = "0"
-   ├─ atoi("0") = 0   → buf[0] = '\0'  → buf = ""   ✅ (buf bien vidé)
+   ├─ atoi("0") = 0   → buf[0] = '\0'  → buf = ""    (buf bien vidé)
    └─ argv[1] = "0"                    → "0"
-                strcmp("", "0") != 0   → PAS égal → puts(out) → raté ❌
+                strcmp("", "0") != 0   → PAS égal → puts(out) → raté 
 ```
 
 `atoi("0")` et `atoi("")` valent **tous les deux 0** (donc `buf` est vidé dans
@@ -95,28 +95,4 @@ bonus3@RainFall:~$ ./bonus3 ""
 $ whoami
 end
 $ cat /home/user/end/.pass
-```
-
-> Astuce shell : si `./bonus3 ""` te laisse un prompt `$` minimaliste, c'est bon —
-> tu es dans le `sh` lancé par `execl`. Tape `whoami` pour confirmer `end`.
-
-Résultat → shell aux droits de **end** (utilisateur final du wargame 🏁).
-
-## Pièges rencontrés (et comment on les a résolus)
-
-| Symptôme | Cause | Fix |
-|---|---|---|
-| `puts` affiche une ligne vide quel que soit l'argument | `.pass` fait ~65 o. → le 1ᵉ `fread(66)` consomme tout → le 2ᵉ `fread` lit 0 octet → `out` reste vide | la branche `puts` est inutile : viser le `strcmp` |
-| `./bonus3 0` → échec | `atoi("0")=0` vide bien `buf`, mais `argv[1]="0"` ≠ `""` → `strcmp != 0` | passer un argument **vide** `""`, pas `"0"` |
-| « je ne connais pas le mot de passe » | on croit devoir le deviner | on n'a pas besoin : on **vide** `buf` et on matche avec `""` |
-
-## Concepts à retenir
-
-| Concept | Explication |
-|---|---|
-| Faille logique (pas d'overflow) | on exploite le contrôle de l'indice de troncature + d'un opérande du `strcmp` |
-| Chaîne C terminée par `\0` | `buf[0]='\0'` rend `buf` "vide" sans effacer les octets suivants |
-| `atoi("")` = `atoi("0")` = 0 | les deux vident `buf`, mais seul `""` rend aussi `argv[1]` vide |
-| `fread` n'écrit que ce qu'il lit | au-delà de l'EOF il n'écrit rien → `out` (déjà mis à zéro) reste vide |
-| Curseur de fichier partagé | deux `fread` successifs lisent **à la suite**, pas depuis le début |
 ```

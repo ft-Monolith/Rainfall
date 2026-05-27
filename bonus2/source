@@ -26,18 +26,6 @@
 /* Variable globale fixée par main selon $LANG, lue par greetuser. */
 int	language = 0;
 
-/*
-** Construit "<salutation><nom>" dans un buffer local de 72 octets et l'affiche.
-** strcat sans borne -> débordement, on écrase l'adresse de retour de greetuser.
-**
-** Ghidra écrit la salutation octet par octet (builtin_strncpy en morceaux) sur
-** local_4c[4] + local_48[4] + local_44[64] : c'est UN seul buffer de 72 octets.
-** Le 'name' vient de main (Ghidra le voit comme &stack0x00000004).
-**
-** Offset confirmé par gdb (motif) : la @retour est écrasée par argv[2][18..21].
-** Avec LANG=fi (préfixe finnois plus long), cette cible tombe dans les 32
-** octets contrôlés de argv[2] -> on y met l'adresse du shellcode. cf. walkthrough.
-*/
 void	greetuser(char *name)
 {
 	char	greeting[72];	/* local_4c + local_48 + local_44, contigus */

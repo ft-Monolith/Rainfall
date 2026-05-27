@@ -107,7 +107,7 @@ distance       = 0x6c     = 108 octets
  (on le saute) = &fake vtable
 ```
 
-⚠️ **On NE touche PAS aux 4 premiers octets** (`a->vtable_ptr`, à `0x0804a008`).
+**On NE touche PAS aux 4 premiers octets** (`a->vtable_ptr`, à `0x0804a008`).
 `setAnnotation` écrit dans `a->annotation`, qui commence à `a+4 = 0x0804a00c` : la
 copie démarre **après** le pointeur de vtable de `a`. Notre payload commence donc
 directement au buffer, et le tout premier octet qu'on écrit (`\x10\xa0\x04\x08`) est
