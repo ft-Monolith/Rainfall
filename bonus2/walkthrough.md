@@ -62,13 +62,55 @@ théorique était décalée de 4 octets, on se fie toujours à gdb).
 
 ## Pourquoi LANG=fi
 
-`greeting` se remplit de gauche à droite : `[ préfixe ][ name... ]`, et la
-@retour est à une **position fixe** dans ce buffer. Le préfixe **consomme** les
-premières cases ; `name` n'occupe que ce qui reste jusqu'à la @retour. Donc :
+`greeting` se remplit de gauche à droite : **tout est collé bout à bout** depuis
+le début du buffer.
 
 ```
-préfixe COURT (anglais "Hello ", 6 o.)   → name démarre tôt  → @retour ≈ argv[2][30]
-préfixe LONG  (finnois "Hyvää päivää ")  → name démarre tard → @retour  = argv[2][18]
+[ préfixe ][ argv[1] = 40 o. ][ argv[2] = 32 o. ]
+0          ↑                  ↑
+        fin préfixe       début d'argv[2]
+```
+
+La @retour à écraser est à une **position FIXE** : l'offset **76** depuis le
+début du buffer (c'est la pile, rien ne la bouge). On calcule l'indice visé dans
+`argv[2]` en **2 étapes simples**.
+
+**Étape 1 — où commence `argv[2]` ?**
+Il est posé *après* le préfixe et *après* les 40 octets d'`argv[1]` :
+
+```
+début d'argv[2] = longueur_préfixe + 40
+  anglais : 6  + 40 = 46
+  finnois : 18 + 40 = 58
+```
+
+**Étape 2 — combien de pas jusqu'à la cible (76) ?**
+On part du début d'`argv[2]` et on compte les pas jusqu'à 76 :
+
+```
+index dans argv[2] = 76 − (début d'argv[2])
+  anglais : 76 − 46 = 30
+  finnois : 76 − 58 = 18
+```
+
+C'est juste « **cible − départ** », comme sur une règle : si tu démarres à 46 et
+veux arriver à 76, tu fais 30 pas → l'octet n°30 d'`argv[2]` tombe pile sur la
+cible.
+
+```
+        position fixe de la @retour ↓ (offset 76)
+        ────────────────────────────┼──────────
+ANGLAIS (préfixe 6) :
+[Hello ][----- argv1 40 -----][===== argv2 32 =====]
+46 ──────────────────────────┘                  ↑
+ruban argv2 commence à 46     →  76-46 = index 30
+                                 adresse = 30,31,32,33 → 32,33 HORS ruban ❌
+
+FINNOIS (préfixe 18) :
+[Hyvää päivää ][----- argv1 40 -----][===== argv2 32 =====]
+58 ────────────────────────────────┘          ↑
+ruban argv2 commence à 58     →  76-58 = index 18
+                                 adresse = 18,19,20,21 → tout DEDANS ✅
 ```
 
 Or on ne contrôle que **32 octets** de `argv[2]` (`strncpy(buf2, argv[2], 0x20)`),
@@ -80,28 +122,30 @@ soit les indices `0..31` :
   → on peut l'écrire en entier → **OK** ✅
 
 **Nuance contre-intuitive :** un préfixe plus long ne pousse PAS la cible plus
-loin — il la fait tomber **plus tôt** dans `argv[2]`. La @retour est fixe ; plus
-le préfixe mange de place au début, moins il reste de `name` pour l'atteindre,
-donc l'indice visé est **plus petit** (18 au lieu de 30) → il rentre dans les 32.
+loin — il fait **glisser le ruban `argv[2]` vers la droite**, donc le ruban
+touche la cible (toujours à 76) **plus tôt**, avec un indice **plus petit** (18
+au lieu de 30) → il rentre dans les 32. Le préfixe ne « repousse pas la cible »,
+il **mange la distance avant le ruban**.
 
 ```mermaid
 flowchart TD
-    FIX["@retour = position FIXE dans le buffer greeting"]
-    FIX --> EN1
-    FIX --> FI1
+    FIX["@retour = position FIXE : offset 76"]
 
-    EN1["ANGLAIS : prefixe 'Hello ' court<br/>name demarre tot"]
-    FI1["FINNOIS : prefixe 'Hyvaa paivaa ' long<br/>name demarre tard"]
+    FIX --> EN0["ANGLAIS : préfixe 'Hello ' = 6"]
+    FIX --> FI0["FINNOIS : préfixe 'Hyvaa paivaa ' = 18"]
 
-    EN1 --> EN2["@retour ≈ argv[2][30]<br/>adresse irait de 30 a 33"]
-    FI1 --> FI2["@retour = argv[2][18]<br/>adresse de 18 a 21"]
+    EN0 --> EN1["Étape 1 — début argv[2]<br/>6 + 40 = 46"]
+    FI0 --> FI1["Étape 1 — début argv[2]<br/>18 + 40 = 58"]
 
-    EN2 --> EN3["32 et 33 HORS des 32 copies<br/>adresse tronquee ❌"]
-    FI2 --> FI3["18 a 21 DANS les 32 copies<br/>adresse complete ✅"]
+    EN1 --> EN2["Étape 2 — index = 76 − 46<br/>= 30"]
+    FI1 --> FI2["Étape 2 — index = 76 − 58<br/>= 18"]
+
+    EN2 --> EN3["adresse = 30..33<br/>32,33 HORS des 32 copiés ❌"]
+    FI2 --> FI3["adresse = 18..21<br/>tout DANS les 32 copiés ✅"]
 
     LIM["⚠️ strncpy(buf2, argv[2], 0x20)<br/>copie SEULEMENT 32 octets : indices 0..31"]
-    LIM -.decide.-> EN3
-    LIM -.decide.-> FI3
+    LIM -.borne.-> EN3
+    LIM -.borne.-> FI3
 
     style EN3 fill:#ffcdd2,stroke:#b71c1c
     style FI3 fill:#c8e6c9,stroke:#1b5e20
