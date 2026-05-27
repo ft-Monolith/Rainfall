@@ -6,8 +6,8 @@ L'exploit repose sur **deux appels de fonction** distincts : un qui **pose la bo
 
 | Appel | Rôle | Ce qu'il fait |
 |---|---|---|
-| `a->setAnnotation(argv[1])` | 🧨 **pose la bombe** | `strcpy` sans borne → déborde et écrase `b->vtable_ptr`. Rien ne s'exécute encore, on a juste corrompu la mémoire. |
-| `*b + *a` (appel virtuel) | 💥 **déclenche** | compile en `call *%edx` ; suit le `vtable_ptr` corrompu → saute sur notre shellcode. |
+| `a->setAnnotation(argv[1])` |  **pose la bombe** | `strcpy` sans borne → déborde et écrase `b->vtable_ptr`. Rien ne s'exécute encore, on a juste corrompu la mémoire. |
+| `*b + *a` (appel virtuel) |  **déclenche** | compile en `call *%edx` ; suit le `vtable_ptr` corrompu → saute sur notre shellcode. |
 
 ```
 setAnnotation(argv[1])   →  POSE la bombe (overflow, corrompt b->vtable_ptr)
