@@ -53,7 +53,7 @@ Pourquoi un petit "1" dans la 4e boîte "vaut" 16 millions ? C'est la **position
 par 256×256×256. Le processeur fait cette multiplication gratuitement en lisant la
 mémoire ; nous on n'écrit qu'un petit "1".
 
-(Vérif : `1*256^3 + 2*256^2 + 85*256 + 68 = 16 777 216 + 131 072 + 21 760 + 68 = 16 930 116` ✓)
+(Vérif : `1*256^3 + 2*256^2 + 85*256 + 68 = 16 777 216 + 131 072 + 21 760 + 68 = 16 930 116` )
 
 ## Étape 1 : trouver la position de notre input sur la stack
 

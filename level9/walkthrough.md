@@ -224,7 +224,7 @@ flowchart TD
     B --> C["Ce qui déborde écrase un panneau<br/>indicateur juste à côté"]
     C --> D["On a réglé ce panneau pour qu'il<br/>renvoie au DÉBUT de notre texte"]
     D --> E["Au début de notre texte, on a mis<br/>l'adresse de notre code (shellcode)"]
-    E --> F([Le programme exécute notre code → shell 🎉])
+    E --> F([Le programme exécute notre code → shell ])
 
     style B fill:#ff6b6b,color:#fff
     style C fill:#ffa94d

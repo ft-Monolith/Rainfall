@@ -94,10 +94,10 @@ Résultat :
 
 | Zone mémoire | Adresse        | Autorisé ? |
 |---|---|---|
-| Stack         | `0xbffff...`   | Non ❌     |
-| Heap libc     | `0xb7e...`     | Non ❌     |
-| Code binaire  | `0x08048...`   | Oui ✅     |
-| Heap malloc   | `0x0804a...`   | Oui ✅     |
+| Stack         | `0xbffff...`   | Non      |
+| Heap libc     | `0xb7e...`     | Non      |
+| Code binaire  | `0x08048...`   | Oui      |
+| Heap malloc   | `0x0804a...`   | Oui      |
 
 `system()` est à `0xb7e6b060` et il n'y a pas de `system@plt` dans ce binaire → on ne peut pas faire un simple return-to-libc.
 
@@ -158,7 +158,7 @@ Puisque les adresses en `0xb` sont bloquées, on ne peut pas sauter vers la stac
 2. strdup copie le shellcode sur le heap (0x0804a008)
           ↓
 3. Écraser l'adresse de retour avec 0x0804a008
-   → la vérif voit 0x0804... → laisse passer ✅
+   → la vérif voit 0x0804... → laisse passer 
           ↓
 4. ret saute sur le heap → exécute le shellcode → shell
 ```

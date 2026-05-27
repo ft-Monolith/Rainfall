@@ -57,7 +57,7 @@ motif            : ... F  F  F  F  G  G  G  G ...
                        FFGG = argv[2][18..21]  ← la @retour
 ```
 
-➡️ **L'adresse de retour est à `argv[2][18]`** (et non 22 : l'estimation
+️ **L'adresse de retour est à `argv[2][18]`** (et non 22 : l'estimation
 théorique était décalée de 4 octets, on se fie toujours à gdb).
 
 ## Pourquoi LANG=fi

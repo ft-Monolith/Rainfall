@@ -88,7 +88,7 @@ Et :
 0x8048584:       "/bin/sh"
 ```
 
-💡 **Découverte clé** : il existe une fonction `run()` à l'adresse `0x08048444` qui appelle directement `system("/bin/sh")`. **Plus besoin de chercher `system` dans la libc.**
+ **Découverte clé** : il existe une fonction `run()` à l'adresse `0x08048444` qui appelle directement `system("/bin/sh")`. **Plus besoin de chercher `system` dans la libc.**
 
 ---
 

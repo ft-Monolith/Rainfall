@@ -98,7 +98,7 @@ adresses croissantes →
   ← EBP - 58
 ```
 
-62 bytes écrits → on écrase EIP. ✓
+62 bytes écrits → on écrase EIP. 
 
 > **Le but : contrôler ce que le CPU exécute ensuite.**
 > Concrètement, **on écrase l'adresse de retour** stockée sur la pile (juste

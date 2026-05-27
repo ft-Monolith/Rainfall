@@ -65,10 +65,10 @@ mais que la taille de `memcpy` est **non signée** (`size_t`) :
 
 ```
 count        = -2147483637  (0x8000000B)
-   → test "count < 10" : OK (négatif) ✓
+   → test "count < 10" : OK (négatif) 
 
 count * 4    = -8589934548  → déborde l'int 32 bits → ≡ 44 (mod 2^32)
-   → memcpy voit la taille 44 (non signé) ✓
+   → memcpy voit la taille 44 (non signé) 
 ```
 
 Un seul nombre, deux lectures : **signé** pour le test (`-2147483637 < 10`),
@@ -81,7 +81,7 @@ bits qui dépassent à gauche sont **jetés** :
 
 ```
 count   = 0x8000000B = 1000....0000 1011        (32 bits, bit de poids fort = 1 → négatif)
-count×4 = décalage 2 → 10 0000....0010 1100      (34 bits : les 2 du haut débordent ✗)
+count×4 = décalage 2 → 10 0000....0010 1100      (34 bits : les 2 du haut débordent )
 gardé   = 0000....0010 1100 = 0x2C = 44          (seuls les 32 bits de droite restent)
 ```
 
