@@ -47,11 +47,6 @@ Interprétation :
 ## 3. Trouver la bonne valeur
 
 La constante est en hexadécimal : `0x1a7`.
-Conversion :
-
-$$
-0x1a7 = 1 \times 16^2 + 10 \times 16 + 7 = 423
-$$
 
 Valeur attendue : **423**.
 

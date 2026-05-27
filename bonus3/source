@@ -48,7 +48,7 @@ int	main(int argc, char **argv)
 	fread(out, 1, 0x41, f);		/* lit la suite du fichier (pour puts) */
 	fclose(f);
 
-	if (strcmp(buf, argv[1]) == 0)
+	if (strcmp(buf, argv[1]) == 0)	
 		execl("/bin/sh", "sh", 0);
 	else
 		puts(out);
