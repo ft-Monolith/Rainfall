@@ -6,30 +6,11 @@
 **     de taille  ->  buffer overflow classique sur la pile.
 **   - run() affiche un message puis lance system("/bin/sh"), mais n'est
 **     JAMAIS appelée par main.
-**
-** La faille :
-**   gets() ne borne pas la saisie. Le buffer fait 64 octets, mais il faut 76
-**   octets pour atteindre l'adresse de retour : 64 (buffer) + 8 (alignement) +
-**   4 (saved EBP) = 76. Au-delà, on écrase l'adresse de retour de main ; en y
-**   mettant l'adresse de run(), main "retourne" dans run.
-**
-** Attention : 64 = TAILLE du buffer (0x50 réservé - 0x10 = l'offset du buffer
-** dans le cadre). 76 = OFFSET d'exploit jusqu'à la @retour. Deux choses
-** distinctes (cf. walkthrough pour le détail).
-**
-** Exploitation :
-**   76 octets de remplissage + adresse de run() en little-endian.
-**   $ python -c 'print "A"*76 + "\x44\x84\x04\x08"' | ./level1
-**   (run() est à 0x08048444 ; le shell hérite des droits setuid level2)
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-/*
-** run() : jamais appelée par main. On détourne l'adresse de retour de main
-** vers cette fonction pour obtenir le shell.
-*/
 void	run(void)
 {
 	fwrite("Good... Wait what?\n", 1, 0x13, stdout);

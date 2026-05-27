@@ -18,14 +18,7 @@ $              ← le programme se termine sans rien afficher
 
 Pas d'invite, pas de message. Le programme attend silencieusement une entrée puis se termine.
 
-### Trace des appels système
-
-```bash
-$ ltrace ./level1
-gets(0xbffff710, 47, 0xbffff75c, 0xb7fd0ff4, 0x80484a0)
-```
-
-🚨 **Mot magique : `gets`**. C'est LA fonction la plus dangereuse de la libc : elle lit `stdin` jusqu'à `\n` **sans aucune limite de taille**. Vulnérabilité de buffer overflow quasi garantie.
+**Mot magique : `gets`**. C'est LA fonction la plus dangereuse de la libc : elle lit `stdin` jusqu'à `\n` **sans aucune limite de taille**. Vulnérabilité de buffer overflow quasi garantie.
 
 ---
 

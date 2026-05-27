@@ -11,18 +11,6 @@
 **        placé directement dans le buffer).
 **   - Ensuite p() fait puts() puis strdup() : strdup recopie notre buffer sur
 **     le HEAP (adresse en 0x0804..., qui elle passe le filtre 0xb).
-**
-** La faille / l'exploit (ret2shellcode via strdup) :
-**   1) on place un shellcode au début du buffer ;
-**   2) on écrase l'adresse de retour avec l'adresse HEAP où strdup va copier
-**      le buffer (ex: 0x0804a008) -> commence par 0x08, donc le filtre 0xb
-**      la laisse passer ;
-**   3) strdup recopie le shellcode à cette adresse heap ;
-**   4) au "ret", p() saute sur le heap -> exécute le shellcode -> shell level3.
-**   (voir walkthrough.md pour le payload complet)
-**
-** Note : unaff_retaddr représente l'adresse de retour lue sur la pile (ebp+4) ;
-** on l'exprime ici via __builtin_return_address pour rester compilable.
 */
 
 #include <stdio.h>

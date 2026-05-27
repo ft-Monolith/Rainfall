@@ -19,14 +19,7 @@ $              ← le programme se termine
 
 Le programme attend une entrée, la répète, puis se termine.
 
-### Trace des appels système
 
-```bash
-$ ltrace ./level2
-gets(0xbffff6cc, ...)     ← lit stdin sans limite de taille
-puts("AAA")               ← répète l'input
-strdup("AAA")             ← copie l'input sur le heap
-```
 
 Trois fonctions clés :
 - `gets()` → vulnérabilité de buffer overflow
@@ -243,16 +236,3 @@ cat /tmp/pay - | ./level2
 | **strdup comme pivot** | strdup copie le shellcode vers une adresse autorisée |
 | **Little-endian** | `0x0804a008` s'écrit `\x08\xa0\x04\x08` |
 | **Setuid exploitation** | Le shell hérite des droits de `level3` |
-
----
-
-## 7. Différence avec le level1
-
-| | Level1 | Level2 |
-|---|---|---|
-| Vulnérabilité | `gets()` | `gets()` |
-| Protection | Aucune | Bloque adresses en `0xb` |
-| Technique | Return-to-function (`run`) | ret2shellcode via `strdup` |
-| Shellcode | Non (fonction existante) | Oui (injecté dans le buffer) |
-| Adresse cible | `0x08048444` (run) | `0x0804a008` (heap) |
-
