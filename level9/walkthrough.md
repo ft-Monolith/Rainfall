@@ -13,7 +13,7 @@ L'exploit repose sur **deux appels de fonction** distincts : un qui **pose la bo
 setAnnotation(argv[1])   →  POSE la bombe (overflow, corrompt b->vtable_ptr)
         │
         ▼
-*b + *a  →  call *%edx    →  DÉCLENCHE (saute sur le shellcode) 💥
+*b + *a  →  call *%edx    →  DÉCLENCHE (saute sur le shellcode)
 ```
 
 Le `call *%edx` est le **cœur de l'exploit** (c'est lui qui exécute le shellcode), mais il

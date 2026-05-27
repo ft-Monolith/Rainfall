@@ -7,24 +7,6 @@
 **     puis fait printf(buf) -> faille format string.
 **   - n() appelle ensuite exit(1) : aucun chemin "normal" ne revient à main.
 **   - o() lance system("/bin/sh") mais n'est JAMAIS appelée par le programme.
-**
-** La faille :
-**   Contrairement aux niveaux précédents, on ne peut PAS écraser une adresse
-**   de retour ni un flag global (pas de variable comparée). Mais le printf()
-**   avec format contrôlé permet d'utiliser %n pour écrire en mémoire.
-**   La cible est la GOT : on remplace l'entrée GOT de exit() par l'adresse
-**   de o(). Quand n() appelle exit(1), le programme saute en réalité dans o()
-**   -> shell.
-**
-** Exploitation (résumé) :
-**   1) objdump -R level5 | grep exit         -> adresse GOT de exit
-**   2) objdump -d level5 | grep "<o>"        -> adresse de o()
-**   3) trouver l'offset où notre buffer apparaît sur la pile (%N$x)
-**   4) payload = adresse(exit@got) + padding pour atteindre la valeur de o()
-**      en compteur d'octets affichés + "%N$n"
-**   $ ./level5 < payload  ->  exit() -> o() -> /bin/sh -> level6
-**   (voir walkthrough pour le découpage en deux écritures de 2 octets via
-**    %hn si l'écriture en une fois est trop volumineuse)
 */
 
 #include <stdio.h>
@@ -45,7 +27,7 @@ void	n(void)
 	char	buf[520];	/* local_20c */
 
 	fgets(buf, 0x200, stdin);	/* lit au plus 512 octets */
-	printf(buf);			/* ⚠️ format string : buf est le format */
+	printf(buf);			/* format string : buf est le format */
 	exit(1);			/* cible : son entrée GOT sera réécrite */
 }
 

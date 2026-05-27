@@ -29,10 +29,10 @@ Points importants :
 - `%POS$hhn` (syntaxe positionnelle) → "écris à l'adresse trouvée à la position POS
   sur la stack", au lieu de "l'argument suivant".
 
-## Pourquoi on n'écrit pas 16 930 116 d'un coup
+## Methode
 
 `%n` écrit "le nombre de caractères affichés". Pour écrire 16 930 116 d'un seul `%n`,
-il faudrait afficher **16 millions de caractères** : faisable mais énorme et sale.
+il faudrait afficher **16 millions de caractères**.
 
 À la place, on découpe `m` en **4 octets** (4 "boîtes" de 0 à 255) :
 
@@ -192,16 +192,6 @@ Décomposition :
 Résultat : `m` contient `0x01025544` → la condition `if (m == 0x1025544)` est vraie →
 `system("/bin/cat /home/user/level5/.pass")` s'exécute et affiche le mot de passe.
 
-## Pièges de syntaxe (vécus en construisant la commande)
-
-- Les **4 adresses** = un **seul** bloc entre `"..."`, collées sans `+` entre elles,
-  au **tout début** (elles doivent être contiguës pour tomber aux positions 12-15).
-- Le padding = `"a"*241`, **pas** `%241` (qui ne veut rien dire).
-- Il faut **un `%hhn` après chaque** padding (4 écritures), pas tous les paddings puis
-  un seul `%hhn`.
-- Bien **fermer chaque guillemet** : oublier le `"` final donne
-  `SyntaxError: EOL while scanning string literal`.
-- `%12$hhn` (avec le `$`) = position 12. Sans le `$`, `%12n` voudrait dire "largeur 12".
 
 ## Variante simple (approche "tout d'un coup", moins propre)
 

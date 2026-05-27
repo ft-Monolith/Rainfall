@@ -13,19 +13,6 @@
 **   - L'appel "*b + *a" est en réalité un APPEL VIRTUEL :
 **         (*(b->vtable[0]))(b, a)
 **     => il déréférence le pointeur de vtable de b.
-**
-** La faille :
-**   a et b sont contigus sur le heap (b = a + 0x6c). En débordant a->buffer,
-**   on écrase le POINTEUR DE VTABLE de b (situé à b+0 = a+0x6c).
-**   Distance buffer -> vtable de b : 0x6c - 4 = 104 octets.
-**   Comme l'appel virtuel fait func = *(*b) puis call func, on redirige
-**   l'exécution vers notre shellcode (placé dans argv[1]).
-**
-** Exploitation (résumé) :
-**   argv[1] = [ @ shellcode ][ shellcode ]...[ padding -> 104 ][ @ a->buffer ]
-**     - les 104+ octets écrasent la vtable de b avec l'adresse de a->buffer ;
-**     - a->buffer[0] contient l'adresse du shellcode ;
-**     - le double déréférencement de l'appel virtuel saute sur le shellcode.
 */
 
 #include <cstring>
