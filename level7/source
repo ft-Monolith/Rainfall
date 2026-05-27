@@ -6,12 +6,6 @@
 **   - strcpy(struct->buffer, argv[i]) SANS contrôle de taille  -> heap overflow.
 **   - main charge le password de level8 dans la globale `c`, puis fait puts("~~").
 **   - m() affiche la globale `c` (le password) mais n'est JAMAIS appelée par main.
-**
-** Technique d'exploitation (voir walkthrough.md) :
-**   1) argv[1] déborde le 1er buffer et écrase le pointeur buffer de la 2e struct
-**      en y mettant l'adresse GOT de puts.
-**   2) le 2e strcpy écrit argv[2] (= adresse de m) dans GOT[puts]  -> écriture arbitraire.
-**   3) puts("~~") saute alors dans m() qui affiche `c` (le password de level8).
 */
 
 #include <stdio.h>
