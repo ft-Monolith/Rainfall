@@ -1,0 +1,58 @@
+/*
+** Bonus3 — source reconstruite à partir du désassemblage Ghidra.
+**
+** Comportement du vrai binaire :
+**   - main attend 1 argument (argc == 2, sinon retourne -1).
+**   - Ouvre /home/user/end/.pass en lecture (sinon retourne -1).
+**   - Deux buffers sur la pile :
+**         buf [65]  (local_98)  + 1 octet (local_57)  -> sert à 66 octets
+**         out [66]  (local_56)
+**     (une boucle les met d'abord à zéro.)
+**
+**   - fread(buf, 1, 0x42, f)   : lit 66 octets du .pass dans buf.
+**   - n = atoi(argv[1])        : convertit l'argument en entier.
+**   - buf[n] = '\0'            : coupe le mot de passe à la position n (!!!)
+**   - fread(out, 1, 0x41, f)   : lit la SUITE du .pass dans out (pour le puts).
+**   - strcmp(buf, argv[1])     : compare le mot de passe (tronqué) à argv[1].
+**         égal   -> execl("/bin/sh", ...)  => shell
+**         sinon  -> puts(out)              => affiche un bout du .pass
+**
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+int	main(int argc, char **argv)
+{
+	char	buf[65];	/* local_98 : reçoit le mot de passe (.pass)    */
+	char	end;		/* local_57 : 66e octet, mis à 0 après le fread */
+	char	out[66];	/* local_56 : suite du .pass, affiché si échec  */
+	FILE	*f;		/* local_14                                     */
+	int	n;		/* iVar2                                        */
+
+	f = fopen("/home/user/end/.pass", "r");
+
+	memset(buf, 0, sizeof(buf));	/* boucle de mise à zéro (Ghidra) */
+
+	if (f == NULL || argc != 2)
+		return (-1);
+
+	fread(buf, 1, 0x42, f);		/* 66 octets du mot de passe dans buf */
+	end = 0;			/* local_57 = 0 */
+
+	n = atoi(argv[1]);		/* on contrôle cet indice */
+	buf[n] = '\0';			/* tronque le mot de passe à la position n */
+
+	fread(out, 1, 0x41, f);		/* lit la suite du fichier (pour puts) */
+	fclose(f);
+
+	if (strcmp(buf, argv[1]) == 0)	/* buf="" et argv[1]="" -> égal */
+		execl("/bin/sh", "sh", 0);
+	else
+		puts(out);
+
+	(void)end;
+	return (0);
+}
