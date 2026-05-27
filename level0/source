@@ -9,13 +9,6 @@
 **       * lance execv("/bin/sh", ...) -> un shell aux droits de level1.
 **   - Sinon, il affiche "No !".
 **
-** Exploitation :
-**   $ ./level0 423        -> shell setuid level1
-**   $ cat /home/user/level1/.pass
-**
-** Note : binaire compilé en statique (~747 Ko), d'où l'absence de "main"
-** évident dans Ghidra ; main est passé en argument à __libc_start_main
-** depuis la fonction "entry" (ici à l'adresse 0x08048ec0).
 */
 
 #include <stdio.h>	/* fwrite, stderr            */
